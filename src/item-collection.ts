@@ -8,6 +8,7 @@ export interface Item extends Record<string, any> {
 
 export interface ItemCollectionSearchableOptions<T>
 	extends Partial<SearchableOptions> {
+	// method to extract searchable content from item
 	getContent: (item: T) => string;
 }
 

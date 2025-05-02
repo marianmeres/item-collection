@@ -6,9 +6,9 @@ It provides:
 - an ordered collection with configurable uniqueness and cardinality constraints, 
 - active item tracking and navigation (previous/next), 
 - generic indexed tagging system that allows for flexible item categorization 
-  (with optional cardinality contraints per tag),
+  (with optional cardinality constraints per tag),
 - high performance lookups even for large collections,
-- optional support for text search (via [searchable](https://github.com/marianmeres/searchable))
+- built-in support for text search (via [searchable](https://github.com/marianmeres/searchable))
 
 ## Installation
 ```sh
