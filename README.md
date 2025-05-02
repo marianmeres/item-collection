@@ -62,7 +62,7 @@ c.findBy(property: string, value: any): T | undefined;
 c.findAllBy(property: string, value: any): T[];
 c.findIndexBy(property: string, value: any): number;
 c.findAllIndexesBy(property: string, value: any): number[];
-c.search(query: string): string[];
+c.search(query: string): T[];
 
 // tagging
 c.applyTag(item: T | undefined, tagName: string): boolean;
