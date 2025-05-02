@@ -1,17 +1,20 @@
 // deno-lint-ignore-file no-explicit-any
 import { Searchable, type SearchableOptions } from "@marianmeres/searchable";
 
+/** The Item in collection */
 export interface Item extends Record<string, any> {
 	// supporting any
 	// id: string;
 }
 
+/** Supported searchable options */
 export interface ItemCollectionSearchableOptions<T>
 	extends Partial<SearchableOptions> {
 	// method to extract searchable content from item
 	getContent: (item: T) => string;
 }
 
+/** Serializable dump output */
 export interface ItemCollectionDump<T> {
 	items: T[];
 	activeIndex: number | undefined;
@@ -22,6 +25,7 @@ export interface ItemCollectionDump<T> {
 	tagConfigs: Record<string, { cardinality: number }>;
 }
 
+/** Supported factory options */
 export interface ItemCollectionConfig<T> {
 	cardinality: number;
 	tags: Record<string, { cardinality: number }>;
