@@ -1,6 +1,5 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { ItemCollection } from "../src/item-collection.ts";
-import type { ItemCollectionConfig } from "../src/mod.ts";
+import { ItemCollection, type ItemCollectionConfig } from "../src/mod.ts";
 
 const clog = console.log;
 
