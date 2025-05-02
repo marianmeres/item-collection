@@ -33,7 +33,8 @@ export interface ItemCollectionConfig<T> {
 	allowUnconfiguredTags: boolean;
 	unique: boolean;
 	idPropName: string;
-
+	// if provided, collection will be auto re-sorted on each add
+	sortFn: undefined | ((a: T, b: T) => number);
 	// searchable only enabled if truthy options exist
 	searchable: ItemCollectionSearchableOptions<T> | undefined | null;
 }
@@ -64,6 +65,9 @@ export class ItemCollection<T extends Item> {
 	#tags: Map<string, Set<number>> = new Map();
 
 	#allowUnconfiguredTags: boolean = true;
+
+	//
+	#sortFn: (a: T, b: T) => number = (_a: T, _b: T) => 0;
 
 	//
 	#searchable: undefined | Searchable;
@@ -166,6 +170,10 @@ export class ItemCollection<T extends Item> {
 			});
 		}
 
+		if (typeof options.sortFn === "function") {
+			this.#sortFn = options.sortFn;
+		}
+
 		return this;
 	}
 
@@ -198,7 +206,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Add an item to the collection */
-	add(item: T): boolean {
+	add(item: T, autoSort = true): boolean {
 		if (!item) {
 			return false;
 		}
@@ -214,8 +222,13 @@ export class ItemCollection<T extends Item> {
 
 		this.#items.push(item);
 
-		// Update indexes for all properties
-		this.#updateItemIndexes(item, this.#items.length - 1);
+		if (autoSort) {
+			// resort & rebuild indexes
+			this.sort();
+		} else {
+			// Update indexes for all properties
+			this.#updateItemIndexes(item, this.#items.length - 1);
+		}
 
 		// searchable
 		if (this.#searchable) {
@@ -233,9 +246,15 @@ export class ItemCollection<T extends Item> {
 
 		let added = 0;
 		for (const item of items) {
-			if (this.add(item)) {
+			// optimize: do not sort here on each loop iteration..
+			if (this.add(item, false)) {
 				added++;
 			}
+		}
+
+		// sort just once
+		if (added) {
+			this.sort();
 		}
 
 		return added;
@@ -735,6 +754,19 @@ export class ItemCollection<T extends Item> {
 		while (indexes.length > config.cardinality) {
 			tagSet.delete(indexes.pop()!);
 		}
+	}
+
+	/** Will (re)sort the collection with provided sortFn or with default.
+	 * Normally, there is no need to sort manually. The collection will be resorted at
+	 * all times automatically. */
+	sort(sortFn?: (a: T, b: T) => number): boolean {
+		sortFn ??= this.#sortFn;
+		if (sortFn) {
+			this.#items = this.#items.toSorted(sortFn);
+			this.#rebuildAllIndexes();
+			return true;
+		}
+		return false;
 	}
 
 	/** Dump the collection state to a JSON-serializable object */

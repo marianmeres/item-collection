@@ -210,3 +210,12 @@ Deno.test("searchable", () => {
 	assertEquals(c.search("hey"), []); // must not be "a" anymore
 	assertEquals(c.search("new"), [c.at(0)]);
 });
+
+Deno.test("custom sortFn", () => {
+	const c = createAbc({
+		sortFn: (a, b) => b.id.localeCompare(a.id),
+	});
+
+	c.add({ id: "x" });
+	assertEquals(c.items, [{ id: "x" }, { id: "c" }, { id: "b" }, { id: "a" }]);
+});

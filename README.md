@@ -34,6 +34,7 @@ const c = new ItemCollection<T>(
         allowUnconfiguredTags: boolean;
         unique: boolean;
         idPropName: string;
+        sortFn: undefined | ((a: T, b: T) => number);
         searchable: ItemCollectionSearchableOptions<T> | undefined | null;
     }>
 );
