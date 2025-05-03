@@ -25,10 +25,9 @@ function replaceWithJs(_match: any, q1: any, path1: any, q3: any, q4: any, path2
 const srcDir = join(import.meta.dirname!, "../src");
 const outDir = join(import.meta.dirname!, "../.npm-dist");
 const outDirSrc = join(outDir, '/src');
-const outDirDist = join(outDir, '/src/dist');
+const outDirDist = join(outDir, '/dist');
 
 console.log({srcDir, outDir, outDirSrc, outDirDist});
-// throw new Error('asdf');
 
 await ensureDir(outDir);
 await emptyDir(outDir);

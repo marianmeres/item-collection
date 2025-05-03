@@ -316,30 +316,6 @@ export class ItemCollection<T extends Item> {
 		return removed;
 	}
 
-	/** Update tag indexes when an item is removed */
-	#updateTagsOnRemove(removedIndex: number): void {
-		// For each tag
-		for (const [tagName, tagSet] of this.#tags.entries()) {
-			// Remove the index if it exists in this tag
-			tagSet.delete(removedIndex);
-
-			// Create a new set with adjusted indexes
-			const newTagSet = new Set<number>();
-			for (const idx of tagSet) {
-				if (idx > removedIndex) {
-					// Decrease indexes that were after the removed item
-					newTagSet.add(idx - 1);
-				} else {
-					// Keep indexes that were before the removed item
-					newTagSet.add(idx);
-				}
-			}
-
-			// Replace the old set with the adjusted one
-			this.#tags.set(tagName, newTagSet);
-		}
-	}
-
 	/** Move to the next item and make it active */
 	next(): T | undefined {
 		if (this.size === 0) return undefined;
@@ -448,7 +424,6 @@ export class ItemCollection<T extends Item> {
 		this.#rebuildAllIndexes();
 
 		// Update active index if needed...
-		// todo: maybe remove and just remove active index on move...
 		if (this.#activeIndex !== undefined) {
 			if (this.#activeIndex === fromIndex) {
 				// If the moved item was active, update to new position
@@ -472,6 +447,30 @@ export class ItemCollection<T extends Item> {
 		this.#updateTagsOnMove(fromIndex, toIndex);
 
 		return true;
+	}
+
+	/** Update tag indexes when an item is removed */
+	#updateTagsOnRemove(removedIndex: number): void {
+		// For each tag
+		for (const [tagName, tagSet] of this.#tags.entries()) {
+			// Remove the index if it exists in this tag
+			tagSet.delete(removedIndex);
+
+			// Create a new set with adjusted indexes
+			const newTagSet = new Set<number>();
+			for (const idx of tagSet) {
+				if (idx > removedIndex) {
+					// Decrease indexes that were after the removed item
+					newTagSet.add(idx - 1);
+				} else {
+					// Keep indexes that were before the removed item
+					newTagSet.add(idx);
+				}
+			}
+
+			// Replace the old set with the adjusted one
+			this.#tags.set(tagName, newTagSet);
+		}
 	}
 
 	/** Update tag indexes when an item is moved */
@@ -770,7 +769,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Dump the collection state to a JSON-serializable object */
-	dump(): ItemCollectionDump<T> {
+	toJSON(): ItemCollectionDump<T> {
 		// Create a serializable tags object
 		const serializedTags: Record<string, number[]> = {};
 		for (const [tagName, tagSet] of this.#tags.entries()) {
@@ -799,13 +798,17 @@ export class ItemCollection<T extends Item> {
 		};
 	}
 
+	/** Serialize the collection to a JSON string */
+	dump(): string {
+		return JSON.stringify(this);
+	}
+
 	/** Restore the collection state from a serialized object */
 	restore(dump: string | ItemCollectionDump<T>): boolean {
 		if (!dump) return false;
 
 		if (typeof dump === "string") {
-			ItemCollection.fromJSON(dump);
-			return true;
+			dump = JSON.parse(dump);
 		}
 
 		if (typeof dump !== "object") return false;
@@ -815,8 +818,7 @@ export class ItemCollection<T extends Item> {
 			this.clear();
 
 			// Restore configuration
-			this.#cardinality =
-				dump.cardinality !== undefined ? dump.cardinality : Infinity;
+			this.#cardinality = dump.cardinality ?? Infinity;
 			this.#unique = !!dump.unique;
 			this.#idPropName = dump.idPropName;
 
@@ -876,11 +878,6 @@ export class ItemCollection<T extends Item> {
 			this.clear();
 			return false;
 		}
-	}
-
-	/** Serialize the collection to a JSON string */
-	toJSON(): string {
-		return JSON.stringify(this.dump());
 	}
 
 	/** Create a new ItemCollection from a JSON string */

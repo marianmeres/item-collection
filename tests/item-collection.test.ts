@@ -155,6 +155,21 @@ Deno.test("tags cardinality", () => {
 	// clog(c.dump());
 });
 
+Deno.test("tags index move item", () => {
+	const c = createAbc();
+	c.applyTag(c.at(0), "foo");
+	c.applyTag(c.at(1), "foo");
+	assertEquals(c.getIndexesByTag("foo"), [0, 1]);
+
+	// tag is moved with the item (former 1 becomes 0 now)
+	c.move(0, 2);
+	assertEquals(c.getIndexesByTag("foo"), [0, 2]);
+
+	// tag is removed with the item (former 2 becomes 1 now)
+	c.removeAt(0);
+	assertEquals(c.getIndexesByTag("foo"), [1]);
+});
+
 Deno.test("move", () => {
 	const c = createAbc();
 	c.setActiveIndex(1);
