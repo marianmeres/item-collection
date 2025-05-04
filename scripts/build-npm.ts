@@ -76,10 +76,10 @@ const packageJson = {
 	license: "MIT",
 	repository: {
 		type: "git",
-		url: "git+https://github.com/marianmeres/searchable.git",
+		url: "git+https://github.com/marianmeres/item-collection.git",
 	},
 	bugs: {
-		url: "https://github.com/marianmeres/searchable/issues",
+		url: "https://github.com/marianmeres/item-collection/issues",
 	},
 	dependencies: {
 		"@marianmeres/searchable": "^2.0.4",

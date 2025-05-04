@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { Searchable, type SearchableOptions } from "@marianmeres/searchable";
+import { PubSub } from "@marianmeres/pubsub";
 
 /** The Item in collection */
 export interface Item extends Record<string, any> {
@@ -41,6 +42,15 @@ export interface ItemCollectionConfig<T> {
 	searchable: ItemCollectionSearchableOptions<T> | undefined | null;
 }
 
+interface ExposedConfig {
+	cardinality: number;
+	tags: Record<string, { cardinality: number }>;
+	allowNextPrevCycle: boolean;
+	allowUnconfiguredTags: boolean;
+	unique: boolean;
+	idPropName: string;
+}
+
 /**
  * ItemCollection - A utility class for managing collections of items with an id property
  */
@@ -79,6 +89,8 @@ export class ItemCollection<T extends Item> {
 		| undefined
 		| ItemCollectionSearchableOptions<T>["getContent"];
 
+	#pubsub: PubSub = new PubSub();
+
 	/** Create a new ItemCollection */
 	constructor(
 		initial: T[] = [],
@@ -90,8 +102,10 @@ export class ItemCollection<T extends Item> {
 			this.#searchableGetContent = options.searchable.getContent;
 			delete options.searchable;
 		}
-		this.configure(options);
-		this.addMany(initial);
+
+		// setup, but do not publish (makes no sense at constructor level)
+		this.configure(options, false);
+		this.addMany(initial, false);
 	}
 
 	/** Get the current number of items in the collection */
@@ -112,14 +126,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Get the instance options */
-	get config(): {
-		cardinality: number;
-		tags: Record<string, { cardinality: number }>;
-		allowNextPrevCycle: boolean;
-		allowUnconfiguredTags: boolean;
-		unique: boolean;
-		idPropName: string;
-	} {
+	get config(): ExposedConfig {
 		return {
 			cardinality: this.#cardinality,
 			tags: Object.fromEntries(this.#tagConfigs.entries()),
@@ -141,7 +148,10 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Configure options */
-	configure(options: Partial<ItemCollectionConfig<T>>): ItemCollection<T> {
+	configure(
+		options: Partial<ItemCollectionConfig<T>>,
+		publish = true
+	): ItemCollection<T> {
 		if (options.searchable) {
 			throw new TypeError(
 				"Searchable options can only be specified at the constructor level."
@@ -182,11 +192,13 @@ export class ItemCollection<T extends Item> {
 			this.#normalizeFn = options.normalizeFn;
 		}
 
+		if (publish) this.#publishCurrent();
+
 		return this;
 	}
 
 	/** Set the active item. */
-	setActive(item: T | undefined): boolean {
+	setActive(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
 		// never by reference
@@ -194,6 +206,7 @@ export class ItemCollection<T extends Item> {
 
 		if (index !== -1) {
 			this.#activeIndex = index;
+			if (publish) this.#publishCurrent();
 			return true;
 		}
 
@@ -201,14 +214,18 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Set the active item by index number  */
-	setActiveIndex(index: number): T | undefined {
+	setActiveIndex(index: number, publish = true): T | undefined {
+		const prev = this.#activeIndex;
 		this.#activeIndex = this.size > 0 ? index % this.size : undefined;
+		if (prev !== this.#activeIndex && publish) this.#publishCurrent();
 		return this.active;
 	}
 
 	/** Will unmark as active */
-	unsetActive(): ItemCollection<T> {
+	unsetActive(publish = true): ItemCollection<T> {
+		const prev = this.#activeIndex;
 		this.#activeIndex === undefined;
+		if (prev !== this.#activeIndex && publish) this.#publishCurrent();
 		return this;
 	}
 
@@ -226,7 +243,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Add an item to the collection */
-	add(item: T, autoSort = true): boolean {
+	add(item: T, autoSort = true, publish = true): boolean {
 		if (!item) return false;
 		if (this.size >= this.#cardinality) return false;
 
@@ -242,7 +259,7 @@ export class ItemCollection<T extends Item> {
 
 		if (autoSort) {
 			// resort & rebuild indexes
-			this.sort();
+			this.sort(undefined, false);
 		} else {
 			// Update indexes for all properties
 			this.#updateItemIndexes(item, this.#items.length - 1);
@@ -250,17 +267,19 @@ export class ItemCollection<T extends Item> {
 
 		this.#recreateSearchableFor(item);
 
+		if (publish) this.#publishCurrent();
+
 		return true;
 	}
 
 	/** Add multiple items to the collection */
-	addMany(items: T[]): number {
+	addMany(items: T[], publish = true): number {
 		if (!Array.isArray(items)) return 0;
 
 		let added = 0;
 		for (const item of items) {
 			// optimize: do not sort here on each loop iteration..
-			if (this.add(item, false)) {
+			if (this.add(item, false, false)) {
 				added++;
 			}
 		}
@@ -268,23 +287,24 @@ export class ItemCollection<T extends Item> {
 		// sort just once
 		if (added) {
 			this.sort();
+			if (publish) this.#publishCurrent();
 		}
 
 		return added;
 	}
 
 	/** Will add or remove item. */
-	toggleAdd(item: T): boolean {
+	toggleAdd(item: T, publish = true): boolean {
 		if (!item) return false;
 		if (this.exists(item[this.#idPropName])) {
 			return !!this.removeAllBy(this.#idPropName, item[this.#idPropName]);
 		} else {
-			return this.add(item);
+			return this.add(item, undefined, publish);
 		}
 	}
 
 	/** Will re-add if exists (id check). Useful for optimistic UI strategies. */
-	patch(item: T | undefined): boolean {
+	patch(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
 		let patched = 0;
@@ -300,30 +320,33 @@ export class ItemCollection<T extends Item> {
 
 		this.#recreateSearchableFor(item);
 
+		if (patched && publish) this.#publishCurrent();
+
 		return !!patched;
 	}
 
 	/** Will re-add many if exist (id check). Useful for optimistic UI strategies. */
-	patchMany(items: (T | undefined)[]): number {
+	patchMany(items: (T | undefined)[], publish = true): number {
 		let patched = 0;
 		for (const item of items) {
 			patched += Number(this.patch(item));
 		}
+		if (patched && publish) this.#publishCurrent();
 		return patched;
 	}
 
 	/** Remove an item from the collection */
-	remove(item: T | undefined): boolean {
+	remove(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
 		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
-		return this.removeAt(index);
+		return this.removeAt(index, publish);
 	}
 
 	/** Remove an item at the specified index */
-	removeAt(index: number): boolean {
+	removeAt(index: number, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
 		const removedItem = this.#items[index];
@@ -351,11 +374,13 @@ export class ItemCollection<T extends Item> {
 		//
 		this.#searchable?.__index.removeDocId(removedItem[this.#idPropName]);
 
+		if (publish) this.#publishCurrent();
+
 		return true;
 	}
 
 	/** Remove all items found by property value */
-	removeAllBy(property: string, value: any): number {
+	removeAllBy(property: string, value: any, publish = true): number {
 		let removed = 0;
 
 		let index = this.findIndexBy(property, value);
@@ -365,6 +390,8 @@ export class ItemCollection<T extends Item> {
 			index = this.findIndexBy(property, value);
 		}
 
+		if (removed && publish) this.#publishCurrent();
+
 		return removed;
 	}
 
@@ -372,6 +399,7 @@ export class ItemCollection<T extends Item> {
 	next(): T | undefined {
 		if (this.size === 0) return undefined;
 
+		const prev = this.#activeIndex;
 		if (this.#activeIndex === undefined) {
 			this.#activeIndex = 0;
 		} else {
@@ -382,6 +410,8 @@ export class ItemCollection<T extends Item> {
 			}
 		}
 
+		if (prev !== this.#activeIndex) this.#publishCurrent();
+
 		return this.active;
 	}
 
@@ -389,6 +419,7 @@ export class ItemCollection<T extends Item> {
 	previous(): T | undefined {
 		if (this.size === 0) return undefined;
 
+		const prev = this.#activeIndex;
 		if (this.#activeIndex === undefined) {
 			this.#activeIndex = 0;
 		} else {
@@ -399,20 +430,26 @@ export class ItemCollection<T extends Item> {
 			}
 		}
 
+		if (prev !== this.#activeIndex) this.#publishCurrent();
+
 		return this.active;
 	}
 
 	/** Move to the first item and make it active */
 	first(): undefined | T {
 		if (this.#items.length === 0) return undefined;
+		const prev = this.#activeIndex;
 		this.#activeIndex = 0;
+		if (prev !== this.#activeIndex) this.#publishCurrent();
 		return this.active;
 	}
 
 	/** Move to the last item and make it active */
 	last(): undefined | T {
 		if (this.#items.length === 0) return undefined;
+		const prev = this.#activeIndex;
 		this.#activeIndex = this.#items.length - 1;
+		if (prev !== this.#activeIndex) this.#publishCurrent();
 		return this.active;
 	}
 
@@ -468,7 +505,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Move an item from one position to another */
-	move(fromIndex: number, toIndex: number): boolean {
+	move(fromIndex: number, toIndex: number, publish = true): boolean {
 		if (
 			fromIndex < 0 ||
 			fromIndex >= this.size ||
@@ -513,6 +550,8 @@ export class ItemCollection<T extends Item> {
 
 		// Update tag indexes
 		this.#updateTagsOnMove(fromIndex, toIndex);
+
+		if (publish) this.#publishCurrent();
 
 		return true;
 	}
@@ -584,7 +623,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Clear all items from the collection */
-	clear(): void {
+	clear(publish = true): void {
 		this.#items = [];
 		this.#activeIndex = undefined;
 		this.#indexesByProperty = new Map();
@@ -593,6 +632,8 @@ export class ItemCollection<T extends Item> {
 		for (const tagSet of this.#tags.values()) {
 			tagSet.clear();
 		}
+
+		if (publish) this.#publishCurrent();
 	}
 
 	/** Get all items in the collection */
@@ -668,17 +709,17 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Add a tag to an item */
-	applyTag(item: T | undefined, tagName: string): boolean {
+	applyTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
 		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
-		return this.applyTagByIndex(index, tagName);
+		return this.applyTagByIndex(index, tagName, publish);
 	}
 
 	/** Add a tag to an item at the specified index */
-	applyTagByIndex(index: number, tagName: string): boolean {
+	applyTagByIndex(index: number, tagName: string, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
 		// Ensure the tag exists
@@ -693,21 +734,24 @@ export class ItemCollection<T extends Item> {
 		}
 
 		tagSet.add(index);
+
+		if (publish) this.#publishCurrent();
+
 		return true;
 	}
 
 	/** Remove a tag from an item */
-	removeTag(item: T | undefined, tagName: string): boolean {
+	removeTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
 		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
-		return this.removeTagByIndex(index, tagName);
+		return this.removeTagByIndex(index, tagName, publish);
 	}
 
 	/** Remove a tag from an item at the specified index */
-	removeTagByIndex(index: number, tagName: string): boolean {
+	removeTagByIndex(index: number, tagName: string, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
 		if (!this.#tags.has(tagName)) return false;
@@ -716,6 +760,9 @@ export class ItemCollection<T extends Item> {
 		if (!tagSet.has(index)) return false;
 
 		tagSet.delete(index);
+
+		if (publish) this.#publishCurrent();
+
 		return true;
 	}
 
@@ -754,7 +801,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Toggle an item's tag */
-	toggleTag(item: T | undefined, tagName: string): boolean {
+	toggleTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
 		const hasTag = this.hasTag(item, tagName);
@@ -763,32 +810,39 @@ export class ItemCollection<T extends Item> {
 		} else {
 			this.applyTag(item, tagName);
 		}
+
+		if (publish) this.#publishCurrent();
+
 		return !hasTag;
 	}
 
 	/** Toggle tag state for an item by index */
-	toggleTagByIndex(index: number, tagName: string): boolean {
+	toggleTagByIndex(index: number, tagName: string, publish = true): boolean {
 		const hasTag = this.hasTagByIndex(index, tagName);
 		if (hasTag) {
-			return this.removeTagByIndex(index, tagName);
+			return this.removeTagByIndex(index, tagName, publish);
 		} else {
-			return this.applyTagByIndex(index, tagName);
+			return this.applyTagByIndex(index, tagName, publish);
 		}
 	}
 
 	/** Remove the tag altogether */
-	deleteTag(tagName: string): boolean {
+	deleteTag(tagName: string, publish = true): boolean {
 		if (!this.#tags.has(tagName)) return false;
 
 		this.#tags.delete(tagName);
 		this.#tagConfigs.delete(tagName);
+
+		if (publish) this.#publishCurrent();
+
 		return true;
 	}
 
 	/** Configure a tag's options (cardinality only at this moment) */
 	configureTag(
 		tagName: string,
-		config: { cardinality: number } = { cardinality: Infinity }
+		config: { cardinality: number } = { cardinality: Infinity },
+		publish = true
 	): boolean {
 		if (!this.#tagConfigs.has(tagName)) {
 			this.#tagConfigs.set(tagName, { cardinality: Infinity });
@@ -804,6 +858,7 @@ export class ItemCollection<T extends Item> {
 			config.cardinality < this.#tags.get(tagName)!.size
 		) {
 			this.#enforceTagCardinality(tagName);
+			if (publish) this.#publishCurrent();
 		}
 
 		return true;
@@ -826,11 +881,12 @@ export class ItemCollection<T extends Item> {
 	/** Will (re)sort the collection with provided sortFn or with default.
 	 * Normally, there is no need to sort manually. The collection will be resorted at
 	 * all times automatically. */
-	sort(sortFn?: (a: T, b: T) => number): boolean {
+	sort(sortFn?: (a: T, b: T) => number, publish = true): boolean {
 		sortFn ??= this.#sortFn;
 		if (sortFn) {
 			this.#items = this.#items.toSorted(sortFn);
 			this.#rebuildAllIndexes();
+			if (publish) this.#publishCurrent();
 			return true;
 		}
 		return false;
@@ -883,7 +939,7 @@ export class ItemCollection<T extends Item> {
 
 		try {
 			// Clear current state
-			this.clear();
+			this.clear(false);
 
 			// Restore configuration
 			this.#cardinality = dump.cardinality ?? Infinity;
@@ -892,7 +948,7 @@ export class ItemCollection<T extends Item> {
 
 			//
 			if (Array.isArray(dump.items)) {
-				this.addMany(dump.items);
+				this.addMany(dump.items, false);
 				this.#rebuildAllIndexes();
 			}
 
@@ -939,6 +995,8 @@ export class ItemCollection<T extends Item> {
 				}
 			}
 
+			this.#publishCurrent();
+
 			return true;
 		} catch (error) {
 			console.error("Unable to restore", error);
@@ -946,6 +1004,36 @@ export class ItemCollection<T extends Item> {
 			this.clear();
 			return false;
 		}
+	}
+
+	/** Subscribe to changes */
+	subscribe(
+		cb: (data: {
+			items: T[];
+			active: T | undefined;
+			size: number;
+			config: ExposedConfig;
+			change: Date;
+		}) => void
+	): () => void {
+		const unsub = this.#pubsub.subscribe("change", cb);
+		cb(this.#current()); // notify newly subscribed asap
+		return unsub;
+	}
+
+	#publishCurrent() {
+		this.#pubsub.publish("change", this.#current());
+	}
+
+	/** Collect current state for publishing. */
+	#current() {
+		return {
+			items: this.getAll(),
+			active: this.active,
+			size: this.size,
+			config: this.config,
+			change: new Date(),
+		};
 	}
 
 	/** Create a new ItemCollection from a JSON string */

@@ -288,3 +288,63 @@ Deno.test("patch works", () => {
 		["b", "c"]
 	);
 });
+
+Deno.test("subscription", () => {
+	const c = createAbc();
+
+	let log: any[] = [];
+	let foos: any[] = [];
+
+	// subscribing gets the current state immediately
+	const unsubscribe = c.subscribe((data) => {
+		log.push(data);
+		foos = c.getIndexesByTag("foo");
+	});
+
+	//
+	assertEquals(log.length, 1);
+	assertEquals(log[0].items.length, 3);
+	assertEquals(log[0].size, 3);
+	assertEquals(log[0].active, undefined);
+	assertEquals(foos, []);
+
+	//
+	c.applyTagByIndex(1, "foo");
+	assertEquals(log.length, 2);
+	assertEquals(log[1].items.length, 3);
+	assertEquals(log[1].size, 3);
+	assertEquals(log[1].active, undefined);
+	assertEquals(foos, [1]);
+
+	//
+	c.add({ id: "x" });
+	assertEquals(log.length, 3);
+	assertEquals(log[2].items.length, 4);
+	assertEquals(log[2].size, 4);
+	assertEquals(log[2].active, undefined);
+	assertEquals(foos, [1]);
+
+	//
+	c.last();
+	assertEquals(log.length, 4);
+	assertEquals(log[3].items.length, 4);
+	assertEquals(log[3].size, 4);
+	assertEquals(log[3].active, { id: "x" });
+	assertEquals(foos, [1]);
+
+	// noop must not be triggered
+	c.last();
+	assertEquals(log.length, 4); // still 4
+
+	//
+	c.deleteTag("foo");
+	assertEquals(log.length, 5);
+	assertEquals(foos, []);
+
+	//
+	unsubscribe();
+
+	// from now on, no more detected changes
+	c.clear();
+	assertEquals(log.length, 5); // still 5
+});
