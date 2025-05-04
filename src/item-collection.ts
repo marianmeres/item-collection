@@ -185,15 +185,19 @@ export class ItemCollection<T extends Item> {
 		return this;
 	}
 
-	/** Set the active item by reference */
+	/** Set the active item. */
 	setActive(item: T | undefined): boolean {
 		if (!item) return false;
 
-		const index = this.#items.indexOf(item);
-		if (index === -1) return false;
+		// never by reference
+		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 
-		this.#activeIndex = index;
-		return true;
+		if (index !== -1) {
+			this.#activeIndex = index;
+			return true;
+		}
+
+		return false;
 	}
 
 	/** Set the active item by index number  */
@@ -312,7 +316,7 @@ export class ItemCollection<T extends Item> {
 	remove(item: T | undefined): boolean {
 		if (!item) return false;
 
-		const index = this.#items.indexOf(item);
+		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
 		return this.removeAt(index);
@@ -412,7 +416,9 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Check if an item with the specified id exists in the collection */
+	/** Check if an item with the specified id exists in the collection.
+	 * Intentionally designing the api as id based only, so it is explicit, that
+	 * the comparison is never done by reference */
 	exists(id: string): boolean {
 		return this.findBy(this.#idPropName, id) !== undefined;
 	}
@@ -665,7 +671,7 @@ export class ItemCollection<T extends Item> {
 	applyTag(item: T | undefined, tagName: string): boolean {
 		if (!item) return false;
 
-		const index = this.#items.indexOf(item);
+		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
 		return this.applyTagByIndex(index, tagName);
@@ -694,7 +700,7 @@ export class ItemCollection<T extends Item> {
 	removeTag(item: T | undefined, tagName: string): boolean {
 		if (!item) return false;
 
-		const index = this.#items.indexOf(item);
+		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
 		return this.removeTagByIndex(index, tagName);
@@ -717,7 +723,7 @@ export class ItemCollection<T extends Item> {
 	hasTag(item: T | undefined, tagName: string): boolean {
 		if (!item) return false;
 
-		const index = this.#items.indexOf(item);
+		const index = this.findIndexBy(this.#idPropName, item[this.#idPropName]);
 		if (index === -1) return false;
 
 		return this.hasTagByIndex(index, tagName);
