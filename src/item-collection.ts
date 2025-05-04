@@ -308,9 +308,11 @@ export class ItemCollection<T extends Item> {
 	toggleAdd(item: T, publish = true): boolean {
 		if (!item) return false;
 		if (this.exists(item[this.#idPropName])) {
-			return !!this.removeAllBy(this.#idPropName, item[this.#idPropName]);
+			!!this.removeAllBy(this.#idPropName, item[this.#idPropName]);
+			return false; // false - removed
 		} else {
-			return this.add(item, undefined, publish);
+			this.add(item, undefined, publish);
+			return true; // true - added
 		}
 	}
 
@@ -824,6 +826,7 @@ export class ItemCollection<T extends Item> {
 
 		if (publish) this.#publishCurrent();
 
+		// false - removed, true - applied
 		return !hasTag;
 	}
 
@@ -831,9 +834,11 @@ export class ItemCollection<T extends Item> {
 	toggleTagByIndex(index: number, tagName: string, publish = true): boolean {
 		const hasTag = this.hasTagByIndex(index, tagName);
 		if (hasTag) {
-			return this.removeTagByIndex(index, tagName, publish);
+			this.removeTagByIndex(index, tagName, publish);
+			return false; // false - removed
 		} else {
-			return this.applyTagByIndex(index, tagName, publish);
+			this.applyTagByIndex(index, tagName, publish);
+			return true; // true - added
 		}
 	}
 
