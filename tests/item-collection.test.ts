@@ -13,6 +13,7 @@ Deno.test("sanity check", () => {
 
 	c.restore(c.dump());
 
+	assertEquals(c.isFull, false);
 	assertEquals(c.active, undefined);
 	assertEquals(c.size, 3);
 	assertEquals(c.config, {

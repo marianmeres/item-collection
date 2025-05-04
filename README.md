@@ -55,6 +55,7 @@ c.remove(item: T | undefined): boolean;
 c.removeAt(index: number): boolean;
 c.removeAllBy(property: string, value: any): number;
 c.move(fromIndex: number, toIndex: number): boolean;
+c.isFull;
 
 // navigation
 c.active;
@@ -90,4 +91,16 @@ c.deleteTag(tagName: string): boolean;
 c.toJSON(): ItemCollectionDump<T>;
 c.dump(): string;
 c.restore(dump: string | ItemCollectionDump<T>): boolean;
+
+// "on change" reactivity
+const unsubscribe = c.subscribe(
+    cb: (data: {
+        items: T[];
+        active: T | undefined;
+        size: number;
+        isFull: boolean;
+        config: ExposedConfig;
+        change: Date;
+    }) => void
+);
 ```
