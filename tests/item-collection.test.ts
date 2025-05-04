@@ -250,3 +250,32 @@ Deno.test("custom normalizeFn", () => {
 	c.add({ id: "x" });
 	assertEquals(c.items, [{ id: "A" }, { id: "B" }, { id: "C" }, { id: "X" }]);
 });
+
+Deno.test("patch works", () => {
+	const c = new ItemCollection<{ foo: string; _s: string }>(
+		[
+			{ foo: "a", _s: "Hey" },
+			{ foo: "b", _s: "Ho" },
+			{ foo: "c", _s: "Let's Go" },
+		],
+		{
+			unique: false,
+			idPropName: "foo",
+			searchable: {
+				getContent: (item) => item._s,
+			},
+		}
+	);
+
+	assertEquals(c.search("go"), [c.at(2)]);
+
+	c.patchMany([{ foo: "b", _s: "go" }]);
+
+	assertEquals(
+		c
+			.search("go")
+			.map((o) => o.foo)
+			.toSorted(),
+		["b", "c"]
+	);
+});

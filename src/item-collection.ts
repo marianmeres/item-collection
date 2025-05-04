@@ -213,6 +213,14 @@ export class ItemCollection<T extends Item> {
 		return this.#items.at(index);
 	}
 
+	#recreateSearchableFor(item: T) {
+		if (this.#searchable) {
+			const docId = item[this.#idPropName];
+			this.#searchable.__index.removeDocId(docId);
+			this.#searchable.add(this.#searchableGetContent?.(item) ?? docId, docId);
+		}
+	}
+
 	/** Add an item to the collection */
 	add(item: T, autoSort = true): boolean {
 		if (!item) {
@@ -241,12 +249,7 @@ export class ItemCollection<T extends Item> {
 			this.#updateItemIndexes(item, this.#items.length - 1);
 		}
 
-		// searchable
-		if (this.#searchable) {
-			const docId = item[this.#idPropName];
-			this.#searchable.__index.removeDocId(docId);
-			this.#searchable.add(this.#searchableGetContent?.(item) ?? docId, docId);
-		}
+		this.#recreateSearchableFor(item);
 
 		return true;
 	}
@@ -269,6 +272,35 @@ export class ItemCollection<T extends Item> {
 		}
 
 		return added;
+	}
+
+	/** Will re-add if exists (id check). Useful for optimistic UI strategies. */
+	patch(item: T | undefined): number {
+		if (!item) return 0;
+
+		let patched = 0;
+
+		const indexes = this.findAllIndexesBy(
+			this.#idPropName,
+			item[this.#idPropName]
+		);
+		for (const index of indexes) {
+			this.#items[index] = item;
+			patched++;
+		}
+
+		this.#recreateSearchableFor(item);
+
+		return patched;
+	}
+
+	/** Will re-add many if exist (id check). Useful for optimistic UI strategies. */
+	patchMany(items: (T | undefined)[]): number {
+		let patched = 0;
+		for (const item of items) {
+			patched += this.patch(item);
+		}
+		return patched;
 	}
 
 	/** Remove an item from the collection */
