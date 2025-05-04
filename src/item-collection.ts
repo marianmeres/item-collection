@@ -831,7 +831,13 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Toggle tag state for an item by index */
-	toggleTagByIndex(index: number, tagName: string, publish = true): boolean {
+	toggleTagByIndex(
+		index: number,
+		tagName: string,
+		publish = true
+	): boolean | undefined {
+		if (!this.at(index)) return undefined;
+
 		const hasTag = this.hasTagByIndex(index, tagName);
 		if (hasTag) {
 			this.removeTagByIndex(index, tagName, publish);

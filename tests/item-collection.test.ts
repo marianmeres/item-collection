@@ -113,6 +113,10 @@ Deno.test("cardinality", () => {
 	assertEquals(c.size, 2);
 	assert(!c.add({ id: "d" }));
 	assertEquals(c.size, 2);
+
+	assert(c.isFull);
+	c.removeAt(0);
+	assert(!c.isFull);
 });
 
 Deno.test("tags", () => {
@@ -130,11 +134,10 @@ Deno.test("tags", () => {
 	assertEquals(c.getIndexesByTag("foo"), [0, 2]);
 	assertEquals(c.getIndexesByTag("xxx"), []);
 
-	c.toggleTag(c.at(2), "foo");
+	assert(!c.toggleTag(c.at(2), "foo")); // false - tag was removed
 	assert(!c.hasTag(c.at(2), "foo"));
 
-	assert(!c.toggleTagByIndex(999, "asdf"));
-	// clog(c.dump());
+	assertEquals(c.toggleTagByIndex(999, "asdf"), undefined); // undef - item does not exist
 });
 
 Deno.test("unconfigured tags", () => {
