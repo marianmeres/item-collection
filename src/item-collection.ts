@@ -35,6 +35,8 @@ export interface ItemCollectionConfig<T> {
 	idPropName: string;
 	// if provided, collection will be auto re-sorted on each add
 	sortFn: undefined | ((a: T, b: T) => number);
+	// if provided, will be applied on each item before adding
+	normalizeFn: undefined | ((item: any) => T);
 	// searchable only enabled if truthy options exist
 	searchable: ItemCollectionSearchableOptions<T> | undefined | null;
 }
@@ -68,6 +70,8 @@ export class ItemCollection<T extends Item> {
 
 	//
 	#sortFn: (a: T, b: T) => number = (_a: T, _b: T) => 0;
+
+	#normalizeFn: (item: any) => T = (item: any) => item;
 
 	//
 	#searchable: undefined | Searchable;
@@ -174,6 +178,10 @@ export class ItemCollection<T extends Item> {
 			this.#sortFn = options.sortFn;
 		}
 
+		if (typeof options.normalizeFn === "function") {
+			this.#normalizeFn = options.normalizeFn;
+		}
+
 		return this;
 	}
 
@@ -214,6 +222,9 @@ export class ItemCollection<T extends Item> {
 		if (this.size >= this.#cardinality) {
 			return false;
 		}
+
+		// normalize asap
+		item = this.#normalizeFn(item);
 
 		// Check uniqueness if enabled
 		if (this.#unique && this.exists(item[this.#idPropName])) {

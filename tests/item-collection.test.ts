@@ -1,3 +1,5 @@
+// deno-lint-ignore-file no-explicit-any
+
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { ItemCollection, type ItemCollectionConfig } from "../src/mod.ts";
 
@@ -233,4 +235,18 @@ Deno.test("custom sortFn", () => {
 
 	c.add({ id: "x" });
 	assertEquals(c.items, [{ id: "x" }, { id: "c" }, { id: "b" }, { id: "a" }]);
+});
+
+Deno.test("custom normalizeFn", () => {
+	const c = new ItemCollection<any>(["a", "b", "c"], {
+		normalizeFn: (item: any) => {
+			if (typeof item === "string") {
+				item = { id: item };
+			}
+			return { id: item.id.toUpperCase() };
+		},
+	});
+
+	c.add({ id: "x" });
+	assertEquals(c.items, [{ id: "A" }, { id: "B" }, { id: "C" }, { id: "X" }]);
 });

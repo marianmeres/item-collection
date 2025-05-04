@@ -36,6 +36,7 @@ const c = new ItemCollection<T>(
         unique: boolean;
         idPropName: string;
         sortFn: undefined | ((a: T, b: T) => number);
+        normalizeFn: undefined | ((item: any) => T);
         searchable: ItemCollectionSearchableOptions<T> | undefined | null;
     }>
 );
