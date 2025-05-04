@@ -148,6 +148,11 @@ export class ItemCollection<T extends Item> {
 		return this.#idPropName;
 	}
 
+	/** Is cardinality reached? */
+	get isFull() {
+		return this.#items.length === this.#cardinality;
+	}
+
 	/** Get the searchable instance (if configured) */
 	get searchable(): Searchable | undefined {
 		return this.#searchable;
@@ -1018,6 +1023,7 @@ export class ItemCollection<T extends Item> {
 			items: T[];
 			active: T | undefined;
 			size: number;
+			isFull: boolean;
 			config: ExposedConfig;
 			change: Date;
 		}) => void
@@ -1037,6 +1043,7 @@ export class ItemCollection<T extends Item> {
 			items: this.getAll(),
 			active: this.active,
 			size: this.size,
+			isFull: this.isFull,
 			config: this.config,
 			change: new Date(),
 		};
