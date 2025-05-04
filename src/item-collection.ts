@@ -81,7 +81,13 @@ export class ItemCollection<T extends Item> {
 	//
 	#sortFn: (a: T, b: T) => number = (_a: T, _b: T) => 0;
 
-	#normalizeFn: (item: any) => T = (item: any) => item;
+	// default opinionated behavior: convert strings to id based objects
+	#normalizeFn: (item: any) => T = (item: any) => {
+		if (typeof item === "string") {
+			item = { [this.#idPropName]: item };
+		}
+		return item;
+	};
 
 	//
 	#searchable: undefined | Searchable;
