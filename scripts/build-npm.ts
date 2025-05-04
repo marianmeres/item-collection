@@ -83,6 +83,7 @@ const packageJson = {
 	},
 	dependencies: {
 		"@marianmeres/searchable": "^2.0.4",
+		"@marianmeres/pubsub": "^2.0.0",
 	}
 };
 Deno.writeTextFileSync(
