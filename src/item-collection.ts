@@ -275,8 +275,8 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Will re-add if exists (id check). Useful for optimistic UI strategies. */
-	patch(item: T | undefined): number {
-		if (!item) return 0;
+	patch(item: T | undefined): boolean {
+		if (!item) return false;
 
 		let patched = 0;
 
@@ -291,14 +291,14 @@ export class ItemCollection<T extends Item> {
 
 		this.#recreateSearchableFor(item);
 
-		return patched;
+		return !!patched;
 	}
 
 	/** Will re-add many if exist (id check). Useful for optimistic UI strategies. */
 	patchMany(items: (T | undefined)[]): number {
 		let patched = 0;
 		for (const item of items) {
-			patched += this.patch(item);
+			patched += Number(this.patch(item));
 		}
 		return patched;
 	}

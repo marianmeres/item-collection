@@ -29,15 +29,15 @@ import { ItemCollection } from '@marianmeres/item-collection';
 const c = new ItemCollection<T>(
     [/* initial items */], 
     options: Partial<{
-        cardinality: number;
-        tags: Record<string, { cardinality: number }>;
-        allowNextPrevCycle: boolean;
-        allowUnconfiguredTags: boolean;
-        unique: boolean;
-        idPropName: string;
-        sortFn: undefined | ((a: T, b: T) => number);
-        normalizeFn: undefined | ((item: any) => T);
-        searchable: ItemCollectionSearchableOptions<T> | undefined | null;
+        cardinality: number; // default Infinity
+        tags: Record<string, { cardinality: number }>; // default {}
+        allowNextPrevCycle: boolean; // default false
+        allowUnconfiguredTags: boolean; // default true
+        unique: boolean; // default true
+        idPropName: string; // default "id"
+        sortFn: undefined | ((a: T, b: T) => number); // default noop
+        normalizeFn: undefined | ((item: any) => T); // default noop
+        searchable: ItemCollectionSearchableOptions<T> | undefined | null; // undefined
     }>
 );
 
@@ -48,6 +48,8 @@ c.size;
 c.at(index: number): T | undefined;
 c.add(item: T): boolean;
 c.addMany(items: T[]): number;
+c.patch(item: T): boolean;
+c.patchMany(items: T[]): number;
 c.remove(item: T | undefined): boolean;
 c.removeAt(index: number): boolean;
 c.removeAllBy(property: string, value: any): number;
