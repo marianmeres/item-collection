@@ -223,13 +223,8 @@ export class ItemCollection<T extends Item> {
 
 	/** Add an item to the collection */
 	add(item: T, autoSort = true): boolean {
-		if (!item) {
-			return false;
-		}
-
-		if (this.size >= this.#cardinality) {
-			return false;
-		}
+		if (!item) return false;
+		if (this.size >= this.#cardinality) return false;
 
 		// normalize asap
 		item = this.#normalizeFn(item);
@@ -272,6 +267,16 @@ export class ItemCollection<T extends Item> {
 		}
 
 		return added;
+	}
+
+	/** Will add or remove item. */
+	toggleAdd(item: T): boolean {
+		if (!item) return false;
+		if (this.exists(item[this.#idPropName])) {
+			return !!this.removeAllBy(this.#idPropName, item[this.#idPropName]);
+		} else {
+			return this.add(item);
+		}
 	}
 
 	/** Will re-add if exists (id check). Useful for optimistic UI strategies. */

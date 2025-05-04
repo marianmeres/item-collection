@@ -33,6 +33,15 @@ Deno.test("sanity check", () => {
 	assertEquals(c.size, 0);
 });
 
+Deno.test("toggle add", () => {
+	const c = createAbc();
+	assertEquals(c.findAllIndexesBy("id", "a"), [0]);
+	c.toggleAdd({ id: "a" });
+	assertEquals(c.findAllIndexesBy("id", "a"), []);
+	c.toggleAdd({ id: "a" });
+	assertEquals(c.findAllIndexesBy("id", "a"), [2]);
+});
+
 Deno.test("unique", () => {
 	const c = createAbc({ unique: false });
 

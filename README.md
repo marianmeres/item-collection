@@ -48,6 +48,7 @@ c.size;
 c.at(index: number): T | undefined;
 c.add(item: T): boolean;
 c.addMany(items: T[]): number;
+c.toggleAdd(item: T): boolean;
 c.patch(item: T): boolean;
 c.patchMany(items: T[]): number;
 c.remove(item: T | undefined): boolean;
