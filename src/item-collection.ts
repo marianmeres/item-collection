@@ -149,8 +149,8 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Is cardinality reached? */
-	get isFull() {
-		return this.#items.length === this.#cardinality;
+	get isFull(): boolean {
+		return this.#items.length >= this.#cardinality;
 	}
 
 	/** Get the searchable instance (if configured) */
