@@ -393,6 +393,20 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
+	/** Move to the first item and make it active */
+	first(): undefined | T {
+		if (this.#items.length === 0) return undefined;
+		this.#activeIndex = 0;
+		return this.active;
+	}
+
+	/** Move to the last item and make it active */
+	last(): undefined | T {
+		if (this.#items.length === 0) return undefined;
+		this.#activeIndex = this.#items.length - 1;
+		return this.active;
+	}
+
 	/** Check if an item with the specified id exists in the collection */
 	exists(id: string): boolean {
 		return this.findBy(this.#idPropName, id) !== undefined;
