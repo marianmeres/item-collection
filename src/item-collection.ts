@@ -466,10 +466,10 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Check if an item with the specified id exists in the collection.
-	 * Intentionally designing the api as id based only, so it is explicit, that
-	 * the comparison is never done by reference */
-	exists(id: string): boolean {
+	/** Check if an item with the specified id exists in the collection. */
+	exists(idOrItem: string | T): boolean {
+		const id =
+			typeof idOrItem === "string" ? idOrItem : idOrItem[this.#idPropName];
 		return this.findBy(this.#idPropName, id) !== undefined;
 	}
 
