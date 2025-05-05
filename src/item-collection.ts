@@ -636,7 +636,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Clear all items from the collection */
-	clear(publish = true): void {
+	clear(publish = true): ItemCollection<T> {
 		this.#items = [];
 		this.#activeIndex = undefined;
 		this.#indexesByProperty = new Map();
@@ -647,6 +647,8 @@ export class ItemCollection<T extends Item> {
 		}
 
 		if (publish) this.#publishCurrent();
+
+		return this;
 	}
 
 	/** Get all items in the collection */
