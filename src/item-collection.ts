@@ -505,11 +505,16 @@ export class ItemCollection<T extends Item> {
 		return propIndex.get(value) ?? [];
 	}
 
-	search(query: string): T[] {
+	/** Search items (internally proxy to searchable.search) */
+	search(
+		query: string,
+		strategy: "exact" | "prefix" | "fuzzy" = "prefix",
+		options: Partial<{ maxDistance: number }> = {}
+	): T[] {
 		if (!this.#searchable) {
 			throw new TypeError("This collection is not cofigured as searchable");
 		}
-		const ids = this.#searchable?.search(query);
+		const ids = this.#searchable?.search(query, strategy, options);
 		const out = [];
 		for (const id of ids) {
 			out.push(this.findBy(this.#idPropName, id)!);
