@@ -242,8 +242,7 @@ export class ItemCollection<T extends Item> {
 
 	/** Will get the item at index. */
 	at(index: number): T | undefined {
-		// must not use at(), so we're not accidentally returning from the end
-		return this.#items[index];
+		return this.#items.at(index);
 	}
 
 	#recreateSearchableFor(item: T) {
