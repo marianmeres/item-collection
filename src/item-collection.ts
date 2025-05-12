@@ -119,6 +119,11 @@ export class ItemCollection<T extends Item> {
 		return this.#items.length;
 	}
 
+	/** Get the currently active index (as a readonly value) */
+	get activeIndex() {
+		return this.#activeIndex;
+	}
+
 	/** Get the currently active item */
 	get active(): T | undefined {
 		return this.#activeIndex !== undefined
@@ -240,7 +245,8 @@ export class ItemCollection<T extends Item> {
 		return this;
 	}
 
-	/** Will get the item at index. */
+	/** Will get the item at index. Proxies to native Array's `.at()` so negative indexes
+	 * are allowed  */
 	at(index: number): T | undefined {
 		return this.#items.at(index);
 	}
@@ -908,7 +914,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Will (re)sort the collection with provided sortFn or with default.
-	 * Normally, there is no need to sort manually. The collection will be resorted at
+	 * Normally, there is no need to sort manually as the collection will be resorted at
 	 * all times automatically. */
 	sort(sortFn?: (a: T, b: T) => number, publish = true): boolean {
 		sortFn ??= this.#sortFn;
