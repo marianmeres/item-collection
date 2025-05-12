@@ -120,7 +120,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Get the currently active index (as a readonly value) */
-	get activeIndex() {
+	get activeIndex(): number | undefined {
 		return this.#activeIndex;
 	}
 
