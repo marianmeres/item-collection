@@ -82,7 +82,7 @@ Deno.test("add/remove", () => {
 	assertEquals(c.at(1), { id: "c" });
 });
 
-Deno.test("active", () => {
+Deno.test.only("active", () => {
 	const c = createAbc();
 
 	assertEquals(c.active, undefined);
@@ -106,7 +106,10 @@ Deno.test("active", () => {
 
 	c.setActiveIndex(2);
 	assertEquals(c.active, { id: "c" });
-	// clog(c.dump());
+
+	// "deactivate"
+	c.unsetActive();
+	assertEquals(c.active, undefined);
 });
 
 Deno.test("cardinality", () => {

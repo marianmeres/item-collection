@@ -240,7 +240,7 @@ export class ItemCollection<T extends Item> {
 	/** Will unmark as active */
 	unsetActive(publish = true): ItemCollection<T> {
 		const prev = this.#activeIndex;
-		this.#activeIndex === undefined;
+		this.#activeIndex = undefined;
 		if (prev !== this.#activeIndex && publish) this.#publishCurrent();
 		return this;
 	}
