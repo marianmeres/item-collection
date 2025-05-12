@@ -82,21 +82,21 @@ Deno.test("add/remove", () => {
 	assertEquals(c.at(1), { id: "c" });
 });
 
-Deno.test.only("active", () => {
+Deno.test("active", () => {
 	const c = createAbc();
 
 	assertEquals(c.active, undefined);
-	assertEquals(c.next(), { id: "a" });
-	assertEquals(c.previous(), { id: "a" });
-	assertEquals(c.next(), { id: "b" });
-	assertEquals(c.next(), { id: "c" });
-	assertEquals(c.next(), { id: "c" });
+	assertEquals(c.setActiveNext(), { id: "a" });
+	assertEquals(c.setActivePrevious(), { id: "a" });
+	assertEquals(c.setActiveNext(), { id: "b" });
+	assertEquals(c.setActiveNext(), { id: "c" });
+	assertEquals(c.setActiveNext(), { id: "c" });
 
 	c.configure({ allowNextPrevCycle: true });
-	assertEquals(c.next(), { id: "a" });
-	assertEquals(c.previous(), { id: "c" });
-	assertEquals(c.previous(), { id: "b" });
-	assertEquals(c.previous(), { id: "a" });
+	assertEquals(c.setActiveNext(), { id: "a" });
+	assertEquals(c.setActivePrevious(), { id: "c" });
+	assertEquals(c.setActivePrevious(), { id: "b" });
+	assertEquals(c.setActivePrevious(), { id: "a" });
 
 	c.setActive(c.findById("b")!);
 	assertEquals(c.active, { id: "b" });
@@ -332,7 +332,7 @@ Deno.test("subscription", () => {
 	assertEquals(foos, [1]);
 
 	//
-	c.last();
+	c.setActiveLast();
 	assertEquals(log.length, 4);
 	assertEquals(log[3].items.length, 4);
 	assertEquals(log[3].size, 4);
@@ -340,7 +340,7 @@ Deno.test("subscription", () => {
 	assertEquals(foos, [1]);
 
 	// noop must not be triggered
-	c.last();
+	c.setActiveLast();
 	assertEquals(log.length, 4); // still 4
 
 	//

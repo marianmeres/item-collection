@@ -62,8 +62,10 @@ c.active;
 c.setActive(item: T | undefined): boolean;
 c.setActiveIndex(index: number): T | undefined;
 c.unsetActive(): ItemCollection<T>;
-c.next(): T | undefined;
-c.previous(): T | undefined;
+c.setActiveNext(): T | undefined;
+c.setActivePrevious(): T | undefined;
+c.setActiveFirst(): T | undefined;
+c.setActiveLast(): T | undefined;
 
 // lookups
 c.exists(id: string): boolean;

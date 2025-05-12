@@ -415,7 +415,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Move to the next item and make it active */
-	next(): T | undefined {
+	setActiveNext(): T | undefined {
 		if (this.size === 0) return undefined;
 
 		const prev = this.#activeIndex;
@@ -435,7 +435,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Move to the previous item and make it active */
-	previous(): T | undefined {
+	setActivePrevious(): T | undefined {
 		if (this.size === 0) return undefined;
 
 		const prev = this.#activeIndex;
@@ -455,7 +455,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Move to the first item and make it active */
-	first(): undefined | T {
+	setActiveFirst(): undefined | T {
 		if (this.#items.length === 0) return undefined;
 		const prev = this.#activeIndex;
 		this.#activeIndex = 0;
@@ -464,7 +464,7 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/** Move to the last item and make it active */
-	last(): undefined | T {
+	setActiveLast(): undefined | T {
 		if (this.#items.length === 0) return undefined;
 		const prev = this.#activeIndex;
 		this.#activeIndex = this.#items.length - 1;
