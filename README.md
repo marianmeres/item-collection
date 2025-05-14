@@ -102,7 +102,7 @@ const unsubscribe = c.subscribe(
         size: number;
         isFull: boolean;
         config: ExposedConfig;
-        change: Date;
+        timestamp: Date;
     }) => void
 );
 ```
