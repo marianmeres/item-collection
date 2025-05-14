@@ -1049,7 +1049,7 @@ export class ItemCollection<T extends Item> {
 			size: number;
 			isFull: boolean;
 			config: ExposedConfig;
-			change: Date;
+			timestamp: Date;
 		}) => void
 	): () => void {
 		const unsub = this.#pubsub.subscribe("change", cb);
@@ -1069,7 +1069,7 @@ export class ItemCollection<T extends Item> {
 			size: this.size,
 			isFull: this.isFull,
 			config: this.config,
-			change: new Date(),
+			timestamp: new Date(),
 		};
 	}
 
