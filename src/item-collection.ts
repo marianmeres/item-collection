@@ -734,7 +734,7 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Add a tag to an item */
+	/** Add tag to an item */
 	applyTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
@@ -744,7 +744,7 @@ export class ItemCollection<T extends Item> {
 		return this.applyTagByIndex(index, tagName, publish);
 	}
 
-	/** Add a tag to an item at the specified index */
+	/** Add tag to an item at the specified index */
 	applyTagByIndex(index: number, tagName: string, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
@@ -766,7 +766,25 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Remove a tag from an item */
+	/** Add tag to items at the specified indexes. */
+	applyTagByIndexes(
+		indexes: number[],
+		tagName: string,
+		publish = true
+	): boolean {
+		let res = false;
+
+		for (const index of indexes) {
+			res = this.applyTagByIndex(index, tagName, false);
+			if (!res) break;
+		}
+
+		if (publish) this.#publishCurrent();
+
+		return res;
+	}
+
+	/** Remove tag from an item */
 	removeTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
@@ -776,7 +794,7 @@ export class ItemCollection<T extends Item> {
 		return this.removeTagByIndex(index, tagName, publish);
 	}
 
-	/** Remove a tag from an item at the specified index */
+	/** Remove tag from an item at the specified index */
 	removeTagByIndex(index: number, tagName: string, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
@@ -790,6 +808,22 @@ export class ItemCollection<T extends Item> {
 		if (publish) this.#publishCurrent();
 
 		return true;
+	}
+
+	/** Remove tag from an item at the specified indexes. */
+	removeTagByIndexes(
+		indexes: number[],
+		tagName: string,
+		publish = true
+	): boolean {
+		let successCounter = 0;
+		for (const index of indexes) {
+			this.removeTagByIndex(index, tagName, false) && successCounter++;
+		}
+
+		if (publish) this.#publishCurrent();
+
+		return successCounter > 0;
 	}
 
 	/** Check if an item has a specific tag */
@@ -873,7 +907,7 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Configure a tag's options (cardinality only at this moment) */
+	/** Configure tag's options (cardinality only at this moment) */
 	configureTag(
 		tagName: string,
 		config: { cardinality: number } = { cardinality: Infinity },

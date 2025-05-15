@@ -173,6 +173,19 @@ Deno.test("tags cardinality", () => {
 	// clog(c.dump());
 });
 
+Deno.test("tags by indexes", () => {
+	const c = createAbc();
+
+	assert(c.applyTagByIndexes([1, 2], "foo"));
+	assert(!c.applyTagByIndexes([100], "foo"));
+	assertEquals(c.getByTag("foo"), [{ id: "b" }, { id: "c" }]);
+
+	// at least one success
+	assert(c.removeTagByIndexes([0, 1], "foo"));
+
+	assertEquals(c.getByTag("foo"), [{ id: "c" }]);
+});
+
 Deno.test("tags index move item", () => {
 	const c = createAbc();
 	c.applyTag(c.at(0), "foo");
