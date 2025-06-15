@@ -1080,6 +1080,7 @@ export class ItemCollection<T extends Item> {
 		cb: (data: {
 			items: T[];
 			active: T | undefined;
+			activeIndex: number | undefined;
 			size: number;
 			isFull: boolean;
 			config: ExposedConfig;
@@ -1100,6 +1101,7 @@ export class ItemCollection<T extends Item> {
 		return {
 			items: this.getAll(),
 			active: this.active,
+			activeIndex: this.activeIndex,
 			size: this.size,
 			isFull: this.isFull,
 			config: this.config,
