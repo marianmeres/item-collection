@@ -1,5 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-import { Searchable, type SearchableOptions } from "@marianmeres/searchable";
+import {
+	LastQuery,
+	Searchable,
+	type SearchableOptions,
+} from "@marianmeres/searchable";
 import { PubSub } from "@marianmeres/pubsub";
 
 /** The Item in collection */
@@ -525,6 +529,10 @@ export class ItemCollection<T extends Item> {
 		for (const id of ids) {
 			out.push(this.findBy(this.#idPropName, id)!);
 		}
+
+		// make "lastQuery" reactive
+		this.#publishCurrent();
+
 		return out;
 	}
 
@@ -1085,6 +1093,7 @@ export class ItemCollection<T extends Item> {
 			isFull: boolean;
 			config: ExposedConfig;
 			timestamp: Date;
+			lastQuery: LastQuery | undefined;
 		}) => void
 	): () => void {
 		const unsub = this.#pubsub.subscribe("change", cb);
@@ -1106,6 +1115,7 @@ export class ItemCollection<T extends Item> {
 			isFull: this.isFull,
 			config: this.config,
 			timestamp: new Date(),
+			lastQuery: this.searchable?.lastQuery,
 		};
 	}
 
