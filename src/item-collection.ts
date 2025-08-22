@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import {
-	LastQuery,
+	type LastQuery,
 	Searchable,
 	type SearchableOptions,
 } from "@marianmeres/searchable";
