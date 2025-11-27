@@ -3,8 +3,6 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { ItemCollection, type ItemCollectionConfig } from "../src/mod.ts";
 
-const clog = console.log;
-
 const createAbc = (opts: Partial<ItemCollectionConfig<{ id: string }>> = {}) =>
 	new ItemCollection([{ id: "a" }, { id: "b" }, { id: "c" }], opts);
 
@@ -312,7 +310,7 @@ Deno.test("patch works", () => {
 Deno.test("subscription", () => {
 	const c = createAbc();
 
-	let log: any[] = [];
+	const log: any[] = [];
 	let foos: any[] = [];
 
 	// subscribing gets the current state immediately

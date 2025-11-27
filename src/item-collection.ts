@@ -98,7 +98,18 @@ export class ItemCollection<T extends Item> {
 
 	#pubsub: PubSub = new PubSub();
 
-	/** Create a new ItemCollection */
+	/**
+	 * Create a new ItemCollection
+	 * @param initial - Array of initial items to add to the collection
+	 * @param options - Configuration options for the collection
+	 * @example
+	 * ```ts
+	 * const collection = new ItemCollection<{id: string, name: string}>(
+	 *   [{id: '1', name: 'Item 1'}],
+	 *   {cardinality: 100, unique: true}
+	 * );
+	 * ```
+	 */
 	constructor(
 		initial: T[] = [],
 		options: Partial<ItemCollectionConfig<T>> = {}
@@ -115,29 +126,44 @@ export class ItemCollection<T extends Item> {
 		this.addMany(initial, false);
 	}
 
-	/** Get the current number of items in the collection */
+	/**
+	 * Get the current number of items in the collection
+	 * @returns The number of items in the collection
+	 */
 	get size(): number {
 		return this.#items.length;
 	}
 
-	/** Get the currently active index (as a readonly value) */
+	/**
+	 * Get the currently active index (as a readonly value)
+	 * @returns The index of the active item, or undefined if no item is active
+	 */
 	get activeIndex(): number | undefined {
 		return this.#activeIndex;
 	}
 
-	/** Get the currently active item */
+	/**
+	 * Get the currently active item
+	 * @returns The active item, or undefined if no item is active
+	 */
 	get active(): T | undefined {
 		return this.#activeIndex !== undefined
 			? this.#items[this.#activeIndex]
 			: undefined;
 	}
 
-	/** Alias for getAll */
+	/**
+	 * Get all items in the collection as a shallow copy
+	 * @returns Array of all items (alias for getAll())
+	 */
 	get items(): T[] {
 		return this.getAll();
 	}
 
-	/** Get the instance options */
+	/**
+	 * Get the current configuration options
+	 * @returns The collection configuration object
+	 */
 	get config(): ExposedConfig {
 		return {
 			cardinality: this.#cardinality,
@@ -149,22 +175,37 @@ export class ItemCollection<T extends Item> {
 		};
 	}
 
-	/** Get the configured "id" property name */
+	/**
+	 * Get the configured "id" property name
+	 * @returns The name of the property used as the unique identifier
+	 */
 	get idPropName(): string {
 		return this.#idPropName;
 	}
 
-	/** Is cardinality reached? */
+	/**
+	 * Check if the collection has reached its cardinality limit
+	 * @returns true if collection is full, false otherwise
+	 */
 	get isFull(): boolean {
 		return this.#items.length >= this.#cardinality;
 	}
 
-	/** Get the searchable instance (if configured) */
+	/**
+	 * Get the searchable instance (if configured)
+	 * @returns The Searchable instance, or undefined if not configured
+	 */
 	get searchable(): Searchable | undefined {
 		return this.#searchable;
 	}
 
-	/** Configure options */
+	/**
+	 * Update collection configuration options
+	 * @param options - Partial configuration options to update
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns This collection instance for chaining
+	 * @throws {TypeError} If attempting to configure searchable options (must be set in constructor)
+	 */
 	configure(
 		options: Partial<ItemCollectionConfig<T>>,
 		publish = true
@@ -214,7 +255,12 @@ export class ItemCollection<T extends Item> {
 		return this;
 	}
 
-	/** Set the active item. */
+	/**
+	 * Set the active item by reference
+	 * @param item - The item to set as active (matched by id property, not reference)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if successful, false if item not found or undefined
+	 */
 	setActive(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
@@ -230,7 +276,12 @@ export class ItemCollection<T extends Item> {
 		return false;
 	}
 
-	/** Set the active item by index number  */
+	/**
+	 * Set the active item by index number
+	 * @param index - The index of the item to set as active (uses modulo for wrapping)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns The newly active item, or undefined if collection is empty
+	 */
 	setActiveIndex(index: number, publish = true): T | undefined {
 		const prev = this.#activeIndex;
 		this.#activeIndex = this.size > 0 ? index % this.size : undefined;
@@ -238,7 +289,11 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Will unmark as active */
+	/**
+	 * Unmark the currently active item
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns This collection instance for chaining
+	 */
 	unsetActive(publish = true): ItemCollection<T> {
 		const prev = this.#activeIndex;
 		this.#activeIndex = undefined;
@@ -246,8 +301,17 @@ export class ItemCollection<T extends Item> {
 		return this;
 	}
 
-	/** Will get the item at index. Proxies to native Array's `.at()` so negative indexes
-	 * are allowed  */
+	/**
+	 * Get the item at the specified index
+	 * Proxies to native Array's `.at()` so negative indexes are allowed
+	 * @param index - The index of the item (supports negative indexing)
+	 * @returns The item at the specified index, or undefined if out of bounds
+	 * @example
+	 * ```ts
+	 * collection.at(0)   // first item
+	 * collection.at(-1)  // last item
+	 * ```
+	 */
 	at(index: number): T | undefined {
 		return this.#items.at(index);
 	}
@@ -260,7 +324,13 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Add an item to the collection */
+	/**
+	 * Add an item to the collection
+	 * @param item - The item to add
+	 * @param autoSort - Whether to automatically sort after adding (default: true)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if added successfully, false if cardinality reached or duplicate (when unique=true)
+	 */
 	add(item: T, autoSort = true, publish = true): boolean {
 		if (!item) return false;
 		if (this.size >= this.#cardinality) return false;
@@ -290,7 +360,12 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Add multiple items to the collection */
+	/**
+	 * Add multiple items to the collection
+	 * @param items - Array of items to add
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns The number of items successfully added
+	 */
 	addMany(items: T[], publish = true): number {
 		if (!Array.isArray(items)) return 0;
 
@@ -311,11 +386,16 @@ export class ItemCollection<T extends Item> {
 		return added;
 	}
 
-	/** Will add or remove item. */
+	/**
+	 * Toggle an item's presence in the collection (add if absent, remove if present)
+	 * @param item - The item to toggle
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if item was added, false if item was removed
+	 */
 	toggleAdd(item: T, publish = true): boolean {
 		if (!item) return false;
 		if (this.exists(item[this.#idPropName])) {
-			!!this.removeAllBy(this.#idPropName, item[this.#idPropName]);
+			!!this.removeAllBy(this.#idPropName, item[this.#idPropName], publish);
 			return false; // false - removed
 		} else {
 			this.add(item, undefined, publish);
@@ -323,7 +403,13 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Will re-add if exists (id check). Useful for optimistic UI strategies. */
+	/**
+	 * Update an existing item in place (matched by id)
+	 * Useful for optimistic UI strategies where you want to update without removing/re-adding
+	 * @param item - The item to patch (must have matching id in collection)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if item was patched, false if item not found
+	 */
 	patch(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
@@ -345,7 +431,12 @@ export class ItemCollection<T extends Item> {
 		return !!patched;
 	}
 
-	/** Will re-add many if exist (id check). Useful for optimistic UI strategies. */
+	/**
+	 * Update multiple existing items in place (matched by id)
+	 * @param items - Array of items to patch
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns The number of items successfully patched
+	 */
 	patchMany(items: (T | undefined)[], publish = true): number {
 		let patched = 0;
 		for (const item of items) {
@@ -355,7 +446,12 @@ export class ItemCollection<T extends Item> {
 		return patched;
 	}
 
-	/** Remove an item from the collection */
+	/**
+	 * Remove an item from the collection
+	 * @param item - The item to remove (matched by id, not reference)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if removed, false if item not found
+	 */
 	remove(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
@@ -365,7 +461,13 @@ export class ItemCollection<T extends Item> {
 		return this.removeAt(index, publish);
 	}
 
-	/** Remove an item at the specified index */
+	/**
+	 * Remove an item at the specified index
+	 * Automatically adjusts active index and tag references
+	 * @param index - The index of the item to remove
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if removed, false if index out of bounds
+	 */
 	removeAt(index: number, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
@@ -399,7 +501,13 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Remove all items found by property value */
+	/**
+	 * Remove all items matching a property value
+	 * @param property - The property name to match
+	 * @param value - The value to match
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns The number of items removed
+	 */
 	removeAllBy(property: string, value: any, publish = true): number {
 		let removed = 0;
 
@@ -415,7 +523,11 @@ export class ItemCollection<T extends Item> {
 		return removed;
 	}
 
-	/** Move to the next item and make it active */
+	/**
+	 * Move to the next item and make it active
+	 * Respects allowNextPrevCycle configuration for wrapping behavior
+	 * @returns The newly active item, or undefined if collection is empty
+	 */
 	setActiveNext(): T | undefined {
 		if (this.size === 0) return undefined;
 
@@ -435,7 +547,11 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Move to the previous item and make it active */
+	/**
+	 * Move to the previous item and make it active
+	 * Respects allowNextPrevCycle configuration for wrapping behavior
+	 * @returns The newly active item, or undefined if collection is empty
+	 */
 	setActivePrevious(): T | undefined {
 		if (this.size === 0) return undefined;
 
@@ -455,7 +571,10 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Move to the first item and make it active */
+	/**
+	 * Move to the first item and make it active
+	 * @returns The first item, or undefined if collection is empty
+	 */
 	setActiveFirst(): undefined | T {
 		if (this.#items.length === 0) return undefined;
 		const prev = this.#activeIndex;
@@ -464,7 +583,10 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Move to the last item and make it active */
+	/**
+	 * Move to the last item and make it active
+	 * @returns The last item, or undefined if collection is empty
+	 */
 	setActiveLast(): undefined | T {
 		if (this.#items.length === 0) return undefined;
 		const prev = this.#activeIndex;
@@ -473,36 +595,65 @@ export class ItemCollection<T extends Item> {
 		return this.active;
 	}
 
-	/** Check if an item with the specified id exists in the collection. */
+	/**
+	 * Check if an item exists in the collection
+	 * @param idOrItem - The item id (string) or item object to check
+	 * @returns true if exists, false otherwise
+	 */
 	exists(idOrItem: string | T): boolean {
 		const id =
 			typeof idOrItem === "string" ? idOrItem : idOrItem[this.#idPropName];
 		return this.findBy(this.#idPropName, id) !== undefined;
 	}
 
-	/** Find the first item by its id (defined as this.#idPropName) */
+	/**
+	 * Find the first item by its id
+	 * @param id - The id value to search for
+	 * @returns The first matching item, or undefined if not found
+	 */
 	findById(id: string): T | undefined {
 		return this.findBy(this.#idPropName, id);
 	}
 
-	/** Find the first item by a property value */
+	/**
+	 * Find the first item matching a property value
+	 * Uses optimized indexing for O(1) lookups
+	 * @param property - The property name to match
+	 * @param value - The value to match
+	 * @returns The first matching item, or undefined if not found
+	 */
 	findBy(property: string, value: any): T | undefined {
 		return this.#items[this.findIndexBy(property, value)];
 	}
 
-	/** Find all items by a property value */
+	/**
+	 * Find all items matching a property value
+	 * @param property - The property name to match
+	 * @param value - The value to match
+	 * @returns Array of all matching items (empty array if none found)
+	 */
 	findAllBy(property: string, value: any): T[] {
 		const indexes = this.findAllIndexesBy(property, value);
 		return indexes.map((idx: number) => this.#items[idx]);
 	}
 
-	/** Find the first item's index by a property value */
+	/**
+	 * Find the index of the first item matching a property value
+	 * @param property - The property name to match
+	 * @param value - The value to match
+	 * @returns The index of the first match, or -1 if not found
+	 */
 	findIndexBy(property: string, value: any): number {
 		const indexes = this.findAllIndexesBy(property, value);
 		return indexes[0] ?? -1;
 	}
 
-	/** Find all item's indexes by a property value */
+	/**
+	 * Find all indexes of items matching a property value
+	 * @param property - The property name to match
+	 * @param value - The value to match
+	 * @returns Array of all matching indexes (empty array if none found)
+	 */
 	findAllIndexesBy(property: string, value: any): number[] {
 		if (!this.#indexesByProperty.has(property)) {
 			this.#buildIndexForProperty(property);
@@ -512,7 +663,15 @@ export class ItemCollection<T extends Item> {
 		return propIndex.get(value) ?? [];
 	}
 
-	/** Search items (internally proxy to searchable.search) */
+	/**
+	 * Search items using full-text search
+	 * Requires searchable to be configured in constructor
+	 * @param query - The search query string
+	 * @param strategy - Search strategy: "exact", "prefix", or "fuzzy" (default: "prefix")
+	 * @param options - Additional search options (e.g., maxDistance for fuzzy search)
+	 * @returns Array of matching items
+	 * @throws {TypeError} If searchable was not configured
+	 */
 	search(
 		query: string,
 		strategy: "exact" | "prefix" | "fuzzy" = "prefix",
@@ -533,7 +692,14 @@ export class ItemCollection<T extends Item> {
 		return out;
 	}
 
-	/** Move an item from one position to another */
+	/**
+	 * Move an item from one position to another
+	 * Automatically maintains tag references and active index
+	 * @param fromIndex - Source index (0-based)
+	 * @param toIndex - Destination index (0-based)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if successful, false if indexes are invalid
+	 */
 	move(fromIndex: number, toIndex: number, publish = true): boolean {
 		if (
 			fromIndex < 0 ||
@@ -651,7 +817,12 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Clear all items from the collection */
+	/**
+	 * Clear all items from the collection
+	 * Also clears active index and resets all tag associations
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns This collection instance for chaining
+	 */
 	clear(publish = true): ItemCollection<T> {
 		this.#items = [];
 		this.#activeIndex = undefined;
@@ -667,7 +838,10 @@ export class ItemCollection<T extends Item> {
 		return this;
 	}
 
-	/** Get all items in the collection */
+	/**
+	 * Get all items in the collection as a shallow copy
+	 * @returns Array containing all items
+	 */
 	getAll(): T[] {
 		return [...this.#items];
 	}
@@ -739,7 +913,13 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Add tag to an item */
+	/**
+	 * Apply a tag to an item
+	 * @param item - The item to tag (matched by id)
+	 * @param tagName - The name of the tag to apply
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if successful, false if item not found or cardinality reached
+	 */
 	applyTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
@@ -749,7 +929,13 @@ export class ItemCollection<T extends Item> {
 		return this.applyTagByIndex(index, tagName, publish);
 	}
 
-	/** Add tag to an item at the specified index */
+	/**
+	 * Apply a tag to an item at the specified index
+	 * @param index - The index of the item to tag
+	 * @param tagName - The name of the tag to apply
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if successful, false if index out of bounds or cardinality reached
+	 */
 	applyTagByIndex(index: number, tagName: string, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
@@ -771,7 +957,13 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Add tag to items at the specified indexes. */
+	/**
+	 * Apply a tag to items at multiple indexes
+	 * @param indexes - Array of indexes to tag
+	 * @param tagName - The name of the tag to apply
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if all successful, false if any failed
+	 */
 	applyTagByIndexes(
 		indexes: number[],
 		tagName: string,
@@ -789,7 +981,13 @@ export class ItemCollection<T extends Item> {
 		return res;
 	}
 
-	/** Remove tag from an item */
+	/**
+	 * Remove a tag from an item
+	 * @param item - The item to untag (matched by id)
+	 * @param tagName - The name of the tag to remove
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if successful, false if item not found or tag not present
+	 */
 	removeTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
@@ -799,7 +997,13 @@ export class ItemCollection<T extends Item> {
 		return this.removeTagByIndex(index, tagName, publish);
 	}
 
-	/** Remove tag from an item at the specified index */
+	/**
+	 * Remove a tag from an item at the specified index
+	 * @param index - The index of the item to untag
+	 * @param tagName - The name of the tag to remove
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if successful, false if index out of bounds or tag not present
+	 */
 	removeTagByIndex(index: number, tagName: string, publish = true): boolean {
 		if (index < 0 || index >= this.size) return false;
 
@@ -815,7 +1019,13 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Remove tag from an item at the specified indexes. */
+	/**
+	 * Remove a tag from items at multiple indexes
+	 * @param indexes - Array of indexes to untag
+	 * @param tagName - The name of the tag to remove
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if at least one was successful, false otherwise
+	 */
 	removeTagByIndexes(
 		indexes: number[],
 		tagName: string,
@@ -831,7 +1041,12 @@ export class ItemCollection<T extends Item> {
 		return successCounter > 0;
 	}
 
-	/** Check if an item has a specific tag */
+	/**
+	 * Check if an item has a specific tag
+	 * @param item - The item to check (matched by id)
+	 * @param tagName - The name of the tag to check
+	 * @returns true if item has the tag, false otherwise
+	 */
 	hasTag(item: T | undefined, tagName: string): boolean {
 		if (!item) return false;
 
@@ -841,7 +1056,12 @@ export class ItemCollection<T extends Item> {
 		return this.hasTagByIndex(index, tagName);
 	}
 
-	/** Check if an item at the specified index has a specific tag */
+	/**
+	 * Check if an item at the specified index has a specific tag
+	 * @param index - The index of the item to check
+	 * @param tagName - The name of the tag to check
+	 * @returns true if item has the tag, false otherwise
+	 */
 	hasTagByIndex(index: number, tagName: string): boolean {
 		if (index < 0 || index >= this.size) return false;
 
@@ -850,7 +1070,11 @@ export class ItemCollection<T extends Item> {
 		return this.#tags.get(tagName)!.has(index);
 	}
 
-	/** Get all items with a specific tag */
+	/**
+	 * Get all items with a specific tag
+	 * @param tagName - The name of the tag
+	 * @returns Array of all items with the tag (empty array if tag not found)
+	 */
 	getByTag(tagName: string): T[] {
 		if (!this.#tags.has(tagName)) return [];
 
@@ -858,14 +1082,24 @@ export class ItemCollection<T extends Item> {
 		return Array.from(tagSet).map((index) => this.#items[index]);
 	}
 
-	/** Get indexes of all items with a specific tag */
+	/**
+	 * Get indexes of all items with a specific tag
+	 * @param tagName - The name of the tag
+	 * @returns Array of all indexes with the tag (empty array if tag not found)
+	 */
 	getIndexesByTag(tagName: string): number[] {
 		if (!this.#tags.has(tagName)) return [];
 
 		return Array.from(this.#tags.get(tagName)!);
 	}
 
-	/** Toggle an item's tag */
+	/**
+	 * Toggle a tag on an item (apply if absent, remove if present)
+	 * @param item - The item to toggle tag on (matched by id)
+	 * @param tagName - The name of the tag to toggle
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if tag was applied, false if tag was removed
+	 */
 	toggleTag(item: T | undefined, tagName: string, publish = true): boolean {
 		if (!item) return false;
 
@@ -882,7 +1116,13 @@ export class ItemCollection<T extends Item> {
 		return !hasTag;
 	}
 
-	/** Toggle tag state for an item by index */
+	/**
+	 * Toggle a tag on an item by index (apply if absent, remove if present)
+	 * @param index - The index of the item to toggle tag on
+	 * @param tagName - The name of the tag to toggle
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if tag was applied, false if tag was removed, undefined if item not found
+	 */
 	toggleTagByIndex(
 		index: number,
 		tagName: string,
@@ -900,7 +1140,13 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Remove the tag altogether */
+	/**
+	 * Delete a tag completely from the collection
+	 * Removes the tag from all items and deletes its configuration
+	 * @param tagName - The name of the tag to delete
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if deleted, false if tag didn't exist
+	 */
 	deleteTag(tagName: string, publish = true): boolean {
 		if (!this.#tags.has(tagName)) return false;
 
@@ -912,7 +1158,13 @@ export class ItemCollection<T extends Item> {
 		return true;
 	}
 
-	/** Configure tag's options (cardinality only at this moment) */
+	/**
+	 * Configure or update a tag's options
+	 * @param tagName - The name of the tag to configure
+	 * @param config - Configuration options (currently only cardinality is supported)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true always (creates tag if it doesn't exist)
+	 */
 	configureTag(
 		tagName: string,
 		config: { cardinality: number } = { cardinality: Infinity },
@@ -952,9 +1204,13 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Will (re)sort the collection with provided sortFn or with default.
-	 * Normally, there is no need to sort manually as the collection will be resorted at
-	 * all times automatically. */
+	/**
+	 * Sort the collection with a custom or default sort function
+	 * Note: Normally not needed as collection auto-sorts on add if sortFn configured
+	 * @param sortFn - Optional sort function (uses configured sortFn if not provided)
+	 * @param publish - Whether to notify subscribers (default: true)
+	 * @returns true if sorted, false if no sort function available
+	 */
 	sort(sortFn?: (a: T, b: T) => number, publish = true): boolean {
 		sortFn ??= this.#sortFn;
 		if (sortFn) {
@@ -966,7 +1222,10 @@ export class ItemCollection<T extends Item> {
 		return false;
 	}
 
-	/** Dump the collection state to a JSON-serializable object */
+	/**
+	 * Export collection state to a JSON-serializable object
+	 * @returns A dump object containing all collection state
+	 */
 	toJSON(): ItemCollectionDump<T> {
 		// Create a serializable tags object
 		const serializedTags: Record<string, number[]> = {};
@@ -996,12 +1255,19 @@ export class ItemCollection<T extends Item> {
 		};
 	}
 
-	/** Serialize the collection to a JSON string */
+	/**
+	 * Serialize the collection to a JSON string
+	 * @returns JSON string representation of the collection
+	 */
 	dump(): string {
 		return JSON.stringify(this);
 	}
 
-	/** Restore the collection state from a serialized object */
+	/**
+	 * Restore collection state from a serialized dump
+	 * @param dump - JSON string or dump object to restore from
+	 * @returns true if successful, false if failed
+	 */
 	restore(dump: string | ItemCollectionDump<T>): boolean {
 		if (!dump) return false;
 
@@ -1080,7 +1346,21 @@ export class ItemCollection<T extends Item> {
 		}
 	}
 
-	/** Subscribe to changes */
+	/**
+	 * Subscribe to collection changes
+	 * The callback is immediately invoked with current state
+	 * @param cb - Callback function to invoke on changes
+	 * @returns Unsubscribe function
+	 * @example
+	 * ```ts
+	 * const unsubscribe = collection.subscribe((data) => {
+	 *   console.log('Items:', data.items);
+	 *   console.log('Active:', data.active);
+	 * });
+	 * // Later, when done:
+	 * unsubscribe();
+	 * ```
+	 */
 	subscribe(
 		cb: (data: {
 			items: T[];
@@ -1116,7 +1396,11 @@ export class ItemCollection<T extends Item> {
 		};
 	}
 
-	/** Create a new ItemCollection from a JSON string */
+	/**
+	 * Create a new ItemCollection from a JSON dump string
+	 * @param json - JSON string to restore from
+	 * @returns New ItemCollection instance (empty if restore fails)
+	 */
 	static fromJSON<T extends Item>(json: string): ItemCollection<T> {
 		try {
 			const state = JSON.parse(json);
