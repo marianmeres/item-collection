@@ -7,10 +7,7 @@ import {
 import { PubSub } from "@marianmeres/pubsub";
 
 /** The Item in collection */
-export interface Item extends Record<string, any> {
-	// supporting any
-	// id: string;
-}
+export interface Item extends Record<string, any> {}
 
 /** Supported searchable options */
 export interface ItemCollectionSearchableOptions<T>
