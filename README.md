@@ -116,15 +116,27 @@ items.deleteTag('selected');
 ### Single Active Item (Radio-like)
 
 ```typescript
-const tabs = new ItemCollection<Tab>(tabList, {
-  tags: { active: { cardinality: 1 } }  // only one can be active
-});
+const tabs = new ItemCollection<Tab>(tabList);
 
-tabs.applyTag(tabs.at(0), 'active');
-tabs.applyTag(tabs.at(2), 'active');  // automatically removes from index 0
+// Set active by item reference
+tabs.setActive(tabs.at(0));
+console.log(tabs.active);  // first tab
 
-tabs.getByTag('active');  // [tab at index 2]
+// Set active by index
+tabs.setActiveIndex(2);
+console.log(tabs.active);  // third tab
+
+// Navigate
+tabs.setActiveNext();      // fourth tab (or stays if at end)
+tabs.setActivePrevious();  // back to third tab
+
+// Clear active state
+tabs.unsetActive();
+console.log(tabs.active);  // undefined
 ```
+
+> **Tip:** For multiple "active-like" states (e.g., selected + focused), use tags with
+> `cardinality: 1` constraint instead.
 
 ### Keyboard Navigation
 
