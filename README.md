@@ -1,5 +1,8 @@
 # @marianmeres/item-collection
 
+[![NPM Version](https://img.shields.io/npm/v/@marianmeres/item-collection)](https://www.npmjs.com/package/@marianmeres/item-collection)
+[![JSR Version](https://jsr.io/badges/@marianmeres/item-collection)](https://jsr.io/@marianmeres/item-collection)
+
 A versatile, high-performance TypeScript utility class for managing collections of items with advanced features.
 
 ## Features
