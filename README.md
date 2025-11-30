@@ -199,6 +199,9 @@ For the complete API documentation, see [API.md](./API.md).
 | **Reactivity** | `subscribe` |
 | **Properties** | `size`, `items`, `active`, `activeIndex`, `isFull`, `config`, `idPropName`, `searchable` |
 
-## License
+## Package Identity
 
-MIT
+- **Name:** @marianmeres/item-collection
+- **Author:** Marian Meres
+- **Repository:** https://github.com/marianmeres/item-collection
+- **License:** MIT
