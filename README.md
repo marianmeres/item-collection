@@ -2,6 +2,7 @@
 
 [![NPM Version](https://img.shields.io/npm/v/@marianmeres/item-collection)](https://www.npmjs.com/package/@marianmeres/item-collection)
 [![JSR Version](https://jsr.io/badges/@marianmeres/item-collection)](https://jsr.io/@marianmeres/item-collection)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A versatile, high-performance TypeScript utility class for managing collections of items with advanced features.
 
@@ -201,10 +202,3 @@ For the complete API documentation, see [API.md](./API.md).
 | **Serialization** | `toJSON`, `dump`, `restore`, `fromJSON` |
 | **Reactivity** | `subscribe` |
 | **Properties** | `size`, `items`, `active`, `activeIndex`, `isFull`, `config`, `idPropName`, `searchable` |
-
-## Package Identity
-
-- **Name:** @marianmeres/item-collection
-- **Author:** Marian Meres
-- **Repository:** https://github.com/marianmeres/item-collection
-- **License:** MIT

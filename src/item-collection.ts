@@ -6,7 +6,18 @@ import {
 } from "@marianmeres/searchable";
 import { PubSub } from "@marianmeres/pubsub";
 
-/** The Item in collection */
+/**
+ * Base interface for items in the collection.
+ * Items must have an "id" property by default (configurable via `idPropName` option).
+ * @example
+ * ```ts
+ * interface User extends Item {
+ *   id: string;
+ *   name: string;
+ *   email: string;
+ * }
+ * ```
+ */
 export interface Item extends Record<string, any> {}
 
 /** Supported searchable options */
@@ -43,7 +54,11 @@ export interface ItemCollectionConfig<T> {
 	searchable: ItemCollectionSearchableOptions<T> | undefined | null;
 }
 
-interface ExposedConfig {
+/**
+ * Configuration object exposed via the `config` property.
+ * A readonly view of the current collection settings.
+ */
+export interface ExposedConfig {
 	cardinality: number;
 	tags: Record<string, { cardinality: number }>;
 	allowNextPrevCycle: boolean;
@@ -678,7 +693,7 @@ export class ItemCollection<T extends Item> {
 		options: Partial<{ maxDistance: number }> = {}
 	): T[] {
 		if (!this.#searchable) {
-			throw new TypeError("This collection is not cofigured as searchable");
+			throw new TypeError("This collection is not configured as searchable");
 		}
 		const ids = this.#searchable?.search(query, strategy, options);
 		const out = [];
