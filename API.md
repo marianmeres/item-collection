@@ -25,31 +25,31 @@ Creates a new ItemCollection instance.
 
 ```typescript
 const collection = new ItemCollection<{ id: string; name: string }>(
-  [{ id: '1', name: 'Item 1' }],
-  { cardinality: 100, unique: true }
+	[{ id: "1", name: "Item 1" }],
+	{ cardinality: 100, unique: true },
 );
 ```
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `initial` | `T[]` | `[]` | Array of initial items to add |
-| `options` | `Partial<ItemCollectionConfig<T>>` | `{}` | Configuration options |
+| Parameter | Type                               | Default | Description                   |
+| --------- | ---------------------------------- | ------- | ----------------------------- |
+| `initial` | `T[]`                              | `[]`    | Array of initial items to add |
+| `options` | `Partial<ItemCollectionConfig<T>>` | `{}`    | Configuration options         |
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `cardinality` | `number` | `Infinity` | Maximum number of items allowed |
-| `unique` | `boolean` | `true` | Prevent duplicate items (by id) |
-| `idPropName` | `string` | `"id"` | Property name used as unique identifier |
-| `allowNextPrevCycle` | `boolean` | `false` | Allow navigation to wrap around |
-| `allowUnconfiguredTags` | `boolean` | `true` | Allow tags without explicit configuration |
-| `tags` | `Record<string, { cardinality: number }>` | `{}` | Pre-configured tags with cardinality limits |
-| `sortFn` | `(a: T, b: T) => number` | `undefined` | Auto-sort function applied on add |
-| `normalizeFn` | `(item: any) => T` | `undefined` | Transform function applied to items before adding |
-| `searchable` | `ItemCollectionSearchableOptions<T>` | `undefined` | Enable full-text search (constructor only) |
+| Option                  | Type                                      | Default     | Description                                       |
+| ----------------------- | ----------------------------------------- | ----------- | ------------------------------------------------- |
+| `cardinality`           | `number`                                  | `Infinity`  | Maximum number of items allowed                   |
+| `unique`                | `boolean`                                 | `true`      | Prevent duplicate items (by id)                   |
+| `idPropName`            | `string`                                  | `"id"`      | Property name used as unique identifier           |
+| `allowNextPrevCycle`    | `boolean`                                 | `false`     | Allow navigation to wrap around                   |
+| `allowUnconfiguredTags` | `boolean`                                 | `true`      | Allow tags without explicit configuration         |
+| `tags`                  | `Record<string, { cardinality: number }>` | `{}`        | Pre-configured tags with cardinality limits       |
+| `sortFn`                | `(a: T, b: T) => number`                  | `undefined` | Auto-sort function applied on add                 |
+| `normalizeFn`           | `(item: any) => T`                        | `undefined` | Transform function applied to items before adding |
+| `searchable`            | `ItemCollectionSearchableOptions<T>`      | `undefined` | Enable full-text search (constructor only)        |
 
 ---
 
@@ -123,7 +123,11 @@ Get the current configuration options.
 get config(): ExposedConfig
 ```
 
-**Returns:** The collection configuration object containing `cardinality`, `tags`, `allowNextPrevCycle`, `allowUnconfiguredTags`, `unique`, and `idPropName`.
+**Returns:** A **deeply frozen** snapshot of the collection configuration containing
+`cardinality`, `tags`, `allowNextPrevCycle`, `allowUnconfiguredTags`, `unique`, and
+`idPropName`. Mutating the returned object (or the nested `tags` objects) will throw in
+strict mode and has no effect on collection state. Use `configure()` to change
+configuration.
 
 ---
 
@@ -164,16 +168,21 @@ configure(
 ): ItemCollection<T>
 ```
 
+Pass `null` to `sortFn` or `normalizeFn` to remove a previously configured function (e.g.
+restoring the default pass-through normalizer). Passing `undefined` leaves the current
+value untouched.
+
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `options` | `Partial<ItemCollectionConfig<T>>` | - | Configuration options to update |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type                               | Default | Description                     |
+| --------- | ---------------------------------- | ------- | ------------------------------- |
+| `options` | `Partial<ItemCollectionConfig<T>>` | -       | Configuration options to update |
+| `publish` | `boolean`                          | `true`  | Whether to notify subscribers   |
 
 **Returns:** This collection instance for chaining.
 
-**Throws:** `TypeError` if attempting to configure searchable options (must be set in constructor).
+**Throws:** `TypeError` if attempting to configure searchable options (must be set in
+constructor).
 
 ---
 
@@ -187,13 +196,14 @@ add(item: T, autoSort?: boolean, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T` | - | The item to add |
-| `autoSort` | `boolean` | `true` | Whether to auto-sort after adding |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter  | Type      | Default | Description                       |
+| ---------- | --------- | ------- | --------------------------------- |
+| `item`     | `T`       | -       | The item to add                   |
+| `autoSort` | `boolean` | `true`  | Whether to auto-sort after adding |
+| `publish`  | `boolean` | `true`  | Whether to notify subscribers     |
 
-**Returns:** `true` if added successfully, `false` if cardinality reached or duplicate (when `unique=true`).
+**Returns:** `true` if added successfully, `false` if cardinality reached or duplicate
+(when `unique=true`).
 
 ---
 
@@ -207,10 +217,10 @@ addMany(items: T[], publish?: boolean): number
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `items` | `T[]` | - | Array of items to add |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `items`   | `T[]`     | -       | Array of items to add         |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** The number of items successfully added.
 
@@ -226,10 +236,10 @@ toggleAdd(item: T, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T` | - | The item to toggle |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `item`    | `T`       | -       | The item to toggle            |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** `true` if item was added, `false` if item was removed.
 
@@ -244,15 +254,18 @@ patch(item: T | undefined, publish?: boolean): boolean
 ```
 
 Useful for optimistic UI strategies where you want to update without removing/re-adding.
+Rebuilds any property indexes affected by the patched item's values so subsequent
+`findBy()` calls see the updated state. The id property itself MUST NOT change — patches
+that alter the id are rejected; use `remove()` + `add()` instead.
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T \| undefined` | - | The item to patch (must have matching id) |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type             | Default | Description                               |
+| --------- | ---------------- | ------- | ----------------------------------------- |
+| `item`    | `T \| undefined` | -       | The item to patch (must have matching id) |
+| `publish` | `boolean`        | `true`  | Whether to notify subscribers             |
 
-**Returns:** `true` if item was patched, `false` if item not found.
+**Returns:** `true` if item was patched, `false` if the id is missing from the collection.
 
 ---
 
@@ -266,10 +279,10 @@ patchMany(items: (T | undefined)[], publish?: boolean): number
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `items` | `(T \| undefined)[]` | - | Array of items to patch |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type                 | Default | Description                   |
+| --------- | -------------------- | ------- | ----------------------------- |
+| `items`   | `(T \| undefined)[]` | -       | Array of items to patch       |
+| `publish` | `boolean`            | `true`  | Whether to notify subscribers |
 
 **Returns:** The number of items successfully patched.
 
@@ -285,10 +298,10 @@ remove(item: T | undefined, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T \| undefined` | - | The item to remove (matched by id) |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type             | Default | Description                        |
+| --------- | ---------------- | ------- | ---------------------------------- |
+| `item`    | `T \| undefined` | -       | The item to remove (matched by id) |
+| `publish` | `boolean`        | `true`  | Whether to notify subscribers      |
 
 **Returns:** `true` if removed, `false` if item not found.
 
@@ -302,14 +315,17 @@ Remove an item at the specified index.
 removeAt(index: number, publish?: boolean): boolean
 ```
 
-Automatically adjusts active index and tag references.
+Automatically adjusts active index and tag references. If the removed item was the active
+one, activeIndex is clamped to the new tail (or `undefined` if the collection becomes
+empty). Previously this used modulo wrapping, which could jump active from tail to head —
+that behavior was surprising and was corrected in 1.4.
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `index` | `number` | - | The index of the item to remove |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                     |
+| --------- | --------- | ------- | ------------------------------- |
+| `index`   | `number`  | -       | The index of the item to remove |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers   |
 
 **Returns:** `true` if removed, `false` if index out of bounds.
 
@@ -325,11 +341,11 @@ removeAllBy(property: string, value: any, publish?: boolean): number
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `property` | `string` | - | The property name to match |
-| `value` | `any` | - | The value to match |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter  | Type      | Default | Description                   |
+| ---------- | --------- | ------- | ----------------------------- |
+| `property` | `string`  | -       | The property name to match    |
+| `value`    | `any`     | -       | The value to match            |
+| `publish`  | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** The number of items removed.
 
@@ -347,11 +363,11 @@ Automatically maintains tag references and active index.
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `fromIndex` | `number` | - | Source index (0-based) |
-| `toIndex` | `number` | - | Destination index (0-based) |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter   | Type      | Default | Description                   |
+| ----------- | --------- | ------- | ----------------------------- |
+| `fromIndex` | `number`  | -       | Source index (0-based)        |
+| `toIndex`   | `number`  | -       | Destination index (0-based)   |
+| `publish`   | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** `true` if successful, `false` if indexes are invalid.
 
@@ -369,17 +385,17 @@ Proxies to native Array's `.at()` so negative indexes are allowed.
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `index` | `number` | The index (supports negative indexing) |
+| Parameter | Type     | Description                            |
+| --------- | -------- | -------------------------------------- |
+| `index`   | `number` | The index (supports negative indexing) |
 
 **Returns:** The item at the specified index, or `undefined` if out of bounds.
 
 **Example:**
 
 ```typescript
-collection.at(0)   // first item
-collection.at(-1)  // last item
+collection.at(0); // first item
+collection.at(-1); // last item
 ```
 
 ---
@@ -408,9 +424,9 @@ Also clears active index and resets all tag associations.
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** This collection instance for chaining.
 
@@ -418,22 +434,25 @@ Also clears active index and resets all tag associations.
 
 ### `sort(sortFn?, publish?)`
 
-Sort the collection with a custom or default sort function.
+Sort the collection with a custom or configured sort function.
 
 ```typescript
 sort(sortFn?: (a: T, b: T) => number, publish?: boolean): boolean
 ```
 
-Note: Normally not needed as collection auto-sorts on add if `sortFn` configured.
+Normally not needed — the collection auto-sorts on `add()` when a `sortFn` is configured.
+Sorting preserves tag associations and the active item by id (both are remapped across the
+reorder).
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `sortFn` | `(a: T, b: T) => number` | configured `sortFn` | Sort function to use |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type                     | Default             | Description                   |
+| --------- | ------------------------ | ------------------- | ----------------------------- |
+| `sortFn`  | `(a: T, b: T) => number` | configured `sortFn` | Sort function to use          |
+| `publish` | `boolean`                | `true`              | Whether to notify subscribers |
 
-**Returns:** `true` if sorted, `false` if no sort function available.
+**Returns:** `true` if sorted, `false` if no sort function is available (i.e. no argument
+was passed and no `sortFn` is configured).
 
 ---
 
@@ -449,10 +468,10 @@ setActive(item: T | undefined, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T \| undefined` | - | The item to set as active (matched by id) |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type             | Default | Description                               |
+| --------- | ---------------- | ------- | ----------------------------------------- |
+| `item`    | `T \| undefined` | -       | The item to set as active (matched by id) |
+| `publish` | `boolean`        | `true`  | Whether to notify subscribers             |
 
 **Returns:** `true` if successful, `false` if item not found or undefined.
 
@@ -468,12 +487,18 @@ setActiveIndex(index: number, publish?: boolean): T | undefined
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `index` | `number` | - | The index (uses modulo for wrapping) |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                                                        |
+| --------- | --------- | ------- | ------------------------------------------------------------------ |
+| `index`   | `number`  | -       | The index (positive wraps by modulo; negative counts from the end) |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers                                      |
 
 **Returns:** The newly active item, or `undefined` if collection is empty.
+
+**Notes:**
+
+- With size 3: `setActiveIndex(5)` → index 2 (wraps), `setActiveIndex(-1)` → index 2 (from
+  end).
+- Non-finite or fractional input is truncated to a safe integer before wrapping.
 
 ---
 
@@ -487,9 +512,9 @@ unsetActive(publish?: boolean): ItemCollection<T>
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** This collection instance for chaining.
 
@@ -559,8 +584,8 @@ exists(idOrItem: string | T): boolean
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter  | Type          | Description                                  |
+| ---------- | ------------- | -------------------------------------------- |
 | `idOrItem` | `string \| T` | The item id (string) or item object to check |
 
 **Returns:** `true` if exists, `false` otherwise.
@@ -577,9 +602,9 @@ findById(id: string): T | undefined
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `string` | The id value to search for |
+| Parameter | Type     | Description                |
+| --------- | -------- | -------------------------- |
+| `id`      | `string` | The id value to search for |
 
 **Returns:** The first matching item, or `undefined` if not found.
 
@@ -597,10 +622,10 @@ Uses optimized indexing for O(1) lookups.
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter  | Type     | Description                |
+| ---------- | -------- | -------------------------- |
 | `property` | `string` | The property name to match |
-| `value` | `any` | The value to match |
+| `value`    | `any`    | The value to match         |
 
 **Returns:** The first matching item, or `undefined` if not found.
 
@@ -616,10 +641,10 @@ findAllBy(property: string, value: any): T[]
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter  | Type     | Description                |
+| ---------- | -------- | -------------------------- |
 | `property` | `string` | The property name to match |
-| `value` | `any` | The value to match |
+| `value`    | `any`    | The value to match         |
 
 **Returns:** Array of all matching items (empty array if none found).
 
@@ -635,10 +660,10 @@ findIndexBy(property: string, value: any): number
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter  | Type     | Description                |
+| ---------- | -------- | -------------------------- |
 | `property` | `string` | The property name to match |
-| `value` | `any` | The value to match |
+| `value`    | `any`    | The value to match         |
 
 **Returns:** The index of the first match, or `-1` if not found.
 
@@ -652,12 +677,15 @@ Find all indexes of items matching a property value.
 findAllIndexesBy(property: string, value: any): number[]
 ```
 
+Returns a defensive shallow copy — mutating the returned array does not affect the
+internal index.
+
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter  | Type     | Description                |
+| ---------- | -------- | -------------------------- |
 | `property` | `string` | The property name to match |
-| `value` | `any` | The value to match |
+| `value`    | `any`    | The value to match         |
 
 **Returns:** Array of all matching indexes (empty array if none found).
 
@@ -675,15 +703,17 @@ search(
 ): T[]
 ```
 
-Requires `searchable` to be configured in constructor.
+Requires `searchable` to be configured in constructor. Only publishes a change
+notification when `lastQuery` actually changes; repeating the same query is a no-op for
+subscribers.
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `query` | `string` | - | The search query string |
-| `strategy` | `"exact" \| "prefix" \| "fuzzy"` | `"prefix"` | Search strategy |
-| `options` | `{ maxDistance?: number }` | `{}` | Additional options (e.g., for fuzzy search) |
+| Parameter  | Type                             | Default    | Description                                 |
+| ---------- | -------------------------------- | ---------- | ------------------------------------------- |
+| `query`    | `string`                         | -          | The search query string                     |
+| `strategy` | `"exact" \| "prefix" \| "fuzzy"` | `"prefix"` | Search strategy                             |
+| `options`  | `{ maxDistance?: number }`       | `{}`       | Additional options (e.g., for fuzzy search) |
 
 **Returns:** Array of matching items.
 
@@ -707,11 +737,11 @@ configureTag(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `tagName` | `string` | - | The name of the tag to configure |
-| `config` | `{ cardinality: number }` | `{ cardinality: Infinity }` | Tag configuration |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type                      | Default                     | Description                      |
+| --------- | ------------------------- | --------------------------- | -------------------------------- |
+| `tagName` | `string`                  | -                           | The name of the tag to configure |
+| `config`  | `{ cardinality: number }` | `{ cardinality: Infinity }` | Tag configuration                |
+| `publish` | `boolean`                 | `true`                      | Whether to notify subscribers    |
 
 **Returns:** `true` always (creates tag if it doesn't exist).
 
@@ -727,11 +757,11 @@ applyTag(item: T | undefined, tagName: string, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T \| undefined` | - | The item to tag (matched by id) |
-| `tagName` | `string` | - | The name of the tag to apply |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type             | Default | Description                     |
+| --------- | ---------------- | ------- | ------------------------------- |
+| `item`    | `T \| undefined` | -       | The item to tag (matched by id) |
+| `tagName` | `string`         | -       | The name of the tag to apply    |
+| `publish` | `boolean`        | `true`  | Whether to notify subscribers   |
 
 **Returns:** `true` if successful, `false` if item not found or cardinality reached.
 
@@ -747,11 +777,11 @@ applyTagByIndex(index: number, tagName: string, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `index` | `number` | - | The index of the item to tag |
-| `tagName` | `string` | - | The name of the tag to apply |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `index`   | `number`  | -       | The index of the item to tag  |
+| `tagName` | `string`  | -       | The name of the tag to apply  |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** `true` if successful, `false` if index out of bounds or cardinality reached.
 
@@ -759,7 +789,9 @@ applyTagByIndex(index: number, tagName: string, publish?: boolean): boolean
 
 ### `applyTagByIndexes(indexes, tagName, publish?)`
 
-Apply a tag to items at multiple indexes.
+Apply a tag to items at multiple indexes. Iterates the full list even if some applications
+fail (e.g. invalid indexes or cardinality limits reached); publishes a single change
+notification at the end.
 
 ```typescript
 applyTagByIndexes(indexes: number[], tagName: string, publish?: boolean): boolean
@@ -767,13 +799,19 @@ applyTagByIndexes(indexes: number[], tagName: string, publish?: boolean): boolea
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `indexes` | `number[]` | - | Array of indexes to tag |
-| `tagName` | `string` | - | The name of the tag to apply |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type       | Default | Description                   |
+| --------- | ---------- | ------- | ----------------------------- |
+| `indexes` | `number[]` | -       | Array of indexes to tag       |
+| `tagName` | `string`   | -       | The name of the tag to apply  |
+| `publish` | `boolean`  | `true`  | Whether to notify subscribers |
 
-**Returns:** `true` if all successful, `false` if any failed.
+**Returns:** `true` if ALL applications succeeded and at least one index was processed;
+`false` otherwise. Callers that need per-index status should use `applyTagByIndex()`
+directly.
+
+> **Behavior change (1.4):** Previously short-circuited on the first failure, leaving
+> later indexes untouched. Now processes the entire list — some applications may have
+> succeeded even when the return value is `false`.
 
 ---
 
@@ -787,11 +825,11 @@ removeTag(item: T | undefined, tagName: string, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T \| undefined` | - | The item to untag (matched by id) |
-| `tagName` | `string` | - | The name of the tag to remove |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type             | Default | Description                       |
+| --------- | ---------------- | ------- | --------------------------------- |
+| `item`    | `T \| undefined` | -       | The item to untag (matched by id) |
+| `tagName` | `string`         | -       | The name of the tag to remove     |
+| `publish` | `boolean`        | `true`  | Whether to notify subscribers     |
 
 **Returns:** `true` if successful, `false` if item not found or tag not present.
 
@@ -807,11 +845,11 @@ removeTagByIndex(index: number, tagName: string, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `index` | `number` | - | The index of the item to untag |
-| `tagName` | `string` | - | The name of the tag to remove |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                    |
+| --------- | --------- | ------- | ------------------------------ |
+| `index`   | `number`  | -       | The index of the item to untag |
+| `tagName` | `string`  | -       | The name of the tag to remove  |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers  |
 
 **Returns:** `true` if successful, `false` if index out of bounds or tag not present.
 
@@ -827,11 +865,11 @@ removeTagByIndexes(indexes: number[], tagName: string, publish?: boolean): boole
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `indexes` | `number[]` | - | Array of indexes to untag |
-| `tagName` | `string` | - | The name of the tag to remove |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type       | Default | Description                   |
+| --------- | ---------- | ------- | ----------------------------- |
+| `indexes` | `number[]` | -       | Array of indexes to untag     |
+| `tagName` | `string`   | -       | The name of the tag to remove |
+| `publish` | `boolean`  | `true`  | Whether to notify subscribers |
 
 **Returns:** `true` if at least one was successful, `false` otherwise.
 
@@ -847,10 +885,10 @@ hasTag(item: T | undefined, tagName: string): boolean
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `item` | `T \| undefined` | The item to check (matched by id) |
-| `tagName` | `string` | The name of the tag to check |
+| Parameter | Type             | Description                       |
+| --------- | ---------------- | --------------------------------- |
+| `item`    | `T \| undefined` | The item to check (matched by id) |
+| `tagName` | `string`         | The name of the tag to check      |
 
 **Returns:** `true` if item has the tag, `false` otherwise.
 
@@ -866,10 +904,10 @@ hasTagByIndex(index: number, tagName: string): boolean
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `index` | `number` | The index of the item to check |
-| `tagName` | `string` | The name of the tag to check |
+| Parameter | Type     | Description                    |
+| --------- | -------- | ------------------------------ |
+| `index`   | `number` | The index of the item to check |
+| `tagName` | `string` | The name of the tag to check   |
 
 **Returns:** `true` if item has the tag, `false` otherwise.
 
@@ -885,8 +923,8 @@ getByTag(tagName: string): T[]
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter | Type     | Description         |
+| --------- | -------- | ------------------- |
 | `tagName` | `string` | The name of the tag |
 
 **Returns:** Array of all items with the tag (empty array if tag not found).
@@ -903,8 +941,8 @@ getIndexesByTag(tagName: string): number[]
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter | Type     | Description         |
+| --------- | -------- | ------------------- |
 | `tagName` | `string` | The name of the tag |
 
 **Returns:** Array of all indexes with the tag (empty array if tag not found).
@@ -921,11 +959,11 @@ toggleTag(item: T | undefined, tagName: string, publish?: boolean): boolean
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `item` | `T \| undefined` | - | The item to toggle tag on (matched by id) |
-| `tagName` | `string` | - | The name of the tag to toggle |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type             | Default | Description                               |
+| --------- | ---------------- | ------- | ----------------------------------------- |
+| `item`    | `T \| undefined` | -       | The item to toggle tag on (matched by id) |
+| `tagName` | `string`         | -       | The name of the tag to toggle             |
+| `publish` | `boolean`        | `true`  | Whether to notify subscribers             |
 
 **Returns:** `true` if tag was applied, `false` if tag was removed.
 
@@ -941,13 +979,14 @@ toggleTagByIndex(index: number, tagName: string, publish?: boolean): boolean | u
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `index` | `number` | - | The index of the item |
-| `tagName` | `string` | - | The name of the tag to toggle |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `index`   | `number`  | -       | The index of the item         |
+| `tagName` | `string`  | -       | The name of the tag to toggle |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
-**Returns:** `true` if tag was applied, `false` if tag was removed, `undefined` if item not found.
+**Returns:** `true` if tag was applied, `false` if tag was removed, `undefined` if item
+not found.
 
 ---
 
@@ -963,10 +1002,10 @@ Removes the tag from all items and deletes its configuration.
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `tagName` | `string` | - | The name of the tag to delete |
-| `publish` | `boolean` | `true` | Whether to notify subscribers |
+| Parameter | Type      | Default | Description                   |
+| --------- | --------- | ------- | ----------------------------- |
+| `tagName` | `string`  | -       | The name of the tag to delete |
+| `publish` | `boolean` | `true`  | Whether to notify subscribers |
 
 **Returns:** `true` if deleted, `false` if tag didn't exist.
 
@@ -1008,9 +1047,9 @@ restore(dump: string | ItemCollectionDump<T>): boolean
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `dump` | `string \| ItemCollectionDump<T>` | JSON string or dump object to restore from |
+| Parameter | Type                              | Description                                |
+| --------- | --------------------------------- | ------------------------------------------ |
+| `dump`    | `string \| ItemCollectionDump<T>` | JSON string or dump object to restore from |
 
 **Returns:** `true` if successful, `false` if failed.
 
@@ -1041,9 +1080,9 @@ The callback is immediately invoked with current state.
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `cb` | `function` | Callback function to invoke on changes |
+| Parameter | Type       | Description                            |
+| --------- | ---------- | -------------------------------------- |
+| `cb`      | `function` | Callback function to invoke on changes |
 
 **Returns:** Unsubscribe function.
 
@@ -1051,12 +1090,46 @@ The callback is immediately invoked with current state.
 
 ```typescript
 const unsubscribe = collection.subscribe((data) => {
-  console.log('Items:', data.items);
-  console.log('Active:', data.active);
+	console.log("Items:", data.items);
+	console.log("Active:", data.active);
 });
 
 // Later, when done:
 unsubscribe();
+```
+
+---
+
+### `batch(fn)`
+
+Execute `fn` with publish notifications suppressed. A single change event is emitted at
+the end if any mutation attempted to publish during the batch.
+
+```typescript
+batch(fn: () => void): void
+```
+
+**Parameters:**
+
+| Parameter | Type         | Description                               |
+| --------- | ------------ | ----------------------------------------- |
+| `fn`      | `() => void` | Callback performing the batched mutations |
+
+**Behavior:**
+
+- Empty batches (no internal publish attempted) do not fire a notification.
+- Nested `batch()` calls are supported; only the outermost flushes.
+- If `fn` throws, the exception propagates. Any pending notification is still flushed so
+  subscribers observe the partial state that took effect before the throw.
+
+**Example:**
+
+```typescript
+collection.batch(() => {
+	collection.add(newItem);
+	collection.applyTag(newItem, "featured");
+	collection.setActive(newItem);
+}); // subscribers notified exactly once
 ```
 
 ---
@@ -1073,9 +1146,9 @@ static fromJSON<T extends Item>(json: string): ItemCollection<T>
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `json` | `string` | JSON string to restore from |
+| Parameter | Type     | Description                 |
+| --------- | -------- | --------------------------- |
+| `json`    | `string` | JSON string to restore from |
 
 **Returns:** New ItemCollection instance (empty if restore fails).
 
@@ -1099,15 +1172,15 @@ Configuration options for ItemCollection.
 
 ```typescript
 interface ItemCollectionConfig<T> {
-  cardinality: number;
-  tags: Record<string, { cardinality: number }>;
-  allowNextPrevCycle: boolean;
-  allowUnconfiguredTags: boolean;
-  unique: boolean;
-  idPropName: string;
-  sortFn: undefined | ((a: T, b: T) => number);
-  normalizeFn: undefined | ((item: any) => T);
-  searchable: ItemCollectionSearchableOptions<T> | undefined | null;
+	cardinality: number;
+	tags: Record<string, { cardinality: number }>;
+	allowNextPrevCycle: boolean;
+	allowUnconfiguredTags: boolean;
+	unique: boolean;
+	idPropName: string;
+	sortFn: undefined | ((a: T, b: T) => number);
+	normalizeFn: undefined | ((item: any) => T);
+	searchable: ItemCollectionSearchableOptions<T> | undefined | null;
 }
 ```
 
@@ -1119,15 +1192,27 @@ Serializable dump output.
 
 ```typescript
 interface ItemCollectionDump<T> {
-  items: T[];
-  activeIndex: number | undefined;
-  cardinality: number;
-  unique: boolean;
-  idPropName: string;
-  tags: Record<string, number[]>;
-  tagConfigs: Record<string, { cardinality: number }>;
+	items: T[];
+	activeIndex: number | undefined;
+	cardinality: number | null;
+	unique: boolean;
+	idPropName: string;
+	allowNextPrevCycle: boolean;
+	allowUnconfiguredTags: boolean;
+	tags: Record<string, number[]>;
+	tagConfigs: Record<string, { cardinality: number | null }>;
+	/** Dump format version. Omitted for legacy (pre-1.4) dumps. */
+	version?: number;
 }
 ```
+
+**Notes:**
+
+- `cardinality` is typed `number | null` because `JSON.stringify(Infinity)` produces
+  `null`. `restore()` normalizes `null` back to `Infinity`. Producing a dump via
+  `toJSON()` / `dump()` always emits `null` for `Infinity`.
+- `allowNextPrevCycle` and `allowUnconfiguredTags` were added in 1.4. Legacy dumps without
+  them restore correctly — the collection's current settings are preserved.
 
 ---
 
@@ -1137,7 +1222,7 @@ Options for enabling full-text search.
 
 ```typescript
 interface ItemCollectionSearchableOptions<T> extends Partial<SearchableOptions> {
-  getContent: (item: T) => string | undefined;
+	getContent: (item: T) => string | undefined;
 }
 ```
 
@@ -1149,11 +1234,11 @@ Configuration object returned by the `config` property.
 
 ```typescript
 interface ExposedConfig {
-  cardinality: number;
-  tags: Record<string, { cardinality: number }>;
-  allowNextPrevCycle: boolean;
-  allowUnconfiguredTags: boolean;
-  unique: boolean;
-  idPropName: string;
+	cardinality: number;
+	tags: Record<string, { cardinality: number }>;
+	allowNextPrevCycle: boolean;
+	allowUnconfiguredTags: boolean;
+	unique: boolean;
+	idPropName: string;
 }
 ```

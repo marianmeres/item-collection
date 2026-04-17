@@ -5,10 +5,12 @@ Machine-readable context for AI agents working with this codebase.
 ## Package Overview
 
 - **Name:** `@marianmeres/item-collection`
-- **Type:** Generic collection manager with active item tracking, tagging, and full-text search
+- **Type:** Generic collection manager with active item tracking, tagging, and full-text
+  search
 - **Runtime:** Deno-first, cross-published to npm
 - **Language:** TypeScript
-- **Dependencies:** `@marianmeres/pubsub` (reactivity), `@marianmeres/searchable` (full-text search)
+- **Dependencies:** `@marianmeres/pubsub` (reactivity), `@marianmeres/searchable`
+  (full-text search)
 - **License:** MIT
 
 ## Architecture
@@ -18,9 +20,9 @@ Machine-readable context for AI agents working with this codebase.
 ```
 src/
   mod.ts              # Re-exports from item-collection.ts
-  item-collection.ts  # All implementation code (~1400 lines)
+  item-collection.ts  # All implementation code (~1700 lines)
 tests/
-  item-collection.test.ts  # All tests (18 tests)
+  item-collection.test.ts  # All tests (38 tests)
 scripts/
   build-npm.ts        # npm build script
 ```
@@ -28,6 +30,7 @@ scripts/
 ### Core Design
 
 Single-class implementation with:
+
 - `ItemCollection<T>` - Generic collection class
 - Private `#items: T[]` array storage
 - Private `#indexesByProperty: Map<string, Map<any, number[]>>` for O(1) lookups
@@ -39,111 +42,113 @@ Single-class implementation with:
 
 ### Exports
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `ItemCollection` | class | Main collection implementation |
-| `Item` | interface | Base interface `Record<string, any>` |
-| `ItemCollectionConfig<T>` | interface | Constructor options |
-| `ItemCollectionDump<T>` | interface | Serialization format |
-| `ItemCollectionSearchableOptions<T>` | interface | Search configuration |
-| `ExposedConfig` | interface | Readonly config returned by `.config` |
+| Export                               | Type      | Description                           |
+| ------------------------------------ | --------- | ------------------------------------- |
+| `ItemCollection`                     | class     | Main collection implementation        |
+| `Item`                               | interface | Base interface `Record<string, any>`  |
+| `ItemCollectionConfig<T>`            | interface | Constructor options                   |
+| `ItemCollectionDump<T>`              | interface | Serialization format                  |
+| `ItemCollectionSearchableOptions<T>` | interface | Search configuration                  |
+| `ExposedConfig`                      | interface | Readonly config returned by `.config` |
 
 ### Properties (Getters)
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `size` | `number` | Current item count |
-| `items` | `T[]` | Shallow copy of all items |
-| `active` | `T \| undefined` | Currently active item |
-| `activeIndex` | `number \| undefined` | Index of active item |
-| `isFull` | `boolean` | True if at cardinality limit |
-| `config` | `ExposedConfig` | Current configuration |
-| `idPropName` | `string` | Configured ID property name |
-| `searchable` | `Searchable \| undefined` | Search instance if configured |
+| Property      | Type                      | Description                   |
+| ------------- | ------------------------- | ----------------------------- |
+| `size`        | `number`                  | Current item count            |
+| `items`       | `T[]`                     | Shallow copy of all items     |
+| `active`      | `T \| undefined`          | Currently active item         |
+| `activeIndex` | `number \| undefined`     | Index of active item          |
+| `isFull`      | `boolean`                 | True if at cardinality limit  |
+| `config`      | `ExposedConfig`           | Current configuration         |
+| `idPropName`  | `string`                  | Configured ID property name   |
+| `searchable`  | `Searchable \| undefined` | Search instance if configured |
 
 ### Collection Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `configure(options, publish?)` | `ItemCollection<T>` | Update configuration |
-| `add(item, autoSort?, publish?)` | `boolean` | Add single item |
-| `addMany(items, publish?)` | `number` | Add multiple items |
-| `remove(item, publish?)` | `boolean` | Remove item by id |
-| `removeAt(index, publish?)` | `boolean` | Remove item at index |
-| `removeAllBy(property, value, publish?)` | `number` | Remove all matching items |
-| `patch(item, publish?)` | `boolean` | Update item in place |
-| `patchMany(items, publish?)` | `number` | Update multiple items |
-| `toggleAdd(item, publish?)` | `boolean` | Add if absent, remove if present |
-| `move(fromIndex, toIndex, publish?)` | `boolean` | Reorder item |
-| `clear(publish?)` | `ItemCollection<T>` | Remove all items |
-| `sort(sortFn?, publish?)` | `boolean` | Sort collection |
-| `at(index)` | `T \| undefined` | Get item (supports negative index) |
-| `getAll()` | `T[]` | Get all items (shallow copy) |
+| Method                                   | Returns             | Description                        |
+| ---------------------------------------- | ------------------- | ---------------------------------- |
+| `configure(options, publish?)`           | `ItemCollection<T>` | Update configuration               |
+| `add(item, autoSort?, publish?)`         | `boolean`           | Add single item                    |
+| `addMany(items, publish?)`               | `number`            | Add multiple items                 |
+| `remove(item, publish?)`                 | `boolean`           | Remove item by id                  |
+| `removeAt(index, publish?)`              | `boolean`           | Remove item at index               |
+| `removeAllBy(property, value, publish?)` | `number`            | Remove all matching items          |
+| `patch(item, publish?)`                  | `boolean`           | Update item in place               |
+| `patchMany(items, publish?)`             | `number`            | Update multiple items              |
+| `toggleAdd(item, publish?)`              | `boolean`           | Add if absent, remove if present   |
+| `move(fromIndex, toIndex, publish?)`     | `boolean`           | Reorder item                       |
+| `clear(publish?)`                        | `ItemCollection<T>` | Remove all items                   |
+| `sort(sortFn?, publish?)`                | `boolean`           | Sort collection                    |
+| `at(index)`                              | `T \| undefined`    | Get item (supports negative index) |
+| `getAll()`                               | `T[]`               | Get all items (shallow copy)       |
 
 ### Navigation Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `setActive(item, publish?)` | `boolean` | Set active by item |
-| `setActiveIndex(index, publish?)` | `T \| undefined` | Set active by index |
-| `unsetActive(publish?)` | `ItemCollection<T>` | Clear active state |
-| `setActiveNext()` | `T \| undefined` | Navigate forward |
-| `setActivePrevious()` | `T \| undefined` | Navigate backward |
-| `setActiveFirst()` | `T \| undefined` | Navigate to first |
-| `setActiveLast()` | `T \| undefined` | Navigate to last |
+| Method                            | Returns             | Description         |
+| --------------------------------- | ------------------- | ------------------- |
+| `setActive(item, publish?)`       | `boolean`           | Set active by item  |
+| `setActiveIndex(index, publish?)` | `T \| undefined`    | Set active by index |
+| `unsetActive(publish?)`           | `ItemCollection<T>` | Clear active state  |
+| `setActiveNext()`                 | `T \| undefined`    | Navigate forward    |
+| `setActivePrevious()`             | `T \| undefined`    | Navigate backward   |
+| `setActiveFirst()`                | `T \| undefined`    | Navigate to first   |
+| `setActiveLast()`                 | `T \| undefined`    | Navigate to last    |
 
 ### Lookup Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `exists(idOrItem)` | `boolean` | Check item existence |
-| `findById(id)` | `T \| undefined` | Find by id property |
-| `findBy(property, value)` | `T \| undefined` | Find by any property |
-| `findAllBy(property, value)` | `T[]` | Find all matching |
-| `findIndexBy(property, value)` | `number` | Find first index (-1 if not found) |
-| `findAllIndexesBy(property, value)` | `number[]` | Find all matching indexes |
-| `search(query, strategy?, options?)` | `T[]` | Full-text search (requires searchable config) |
+| Method                               | Returns          | Description                                   |
+| ------------------------------------ | ---------------- | --------------------------------------------- |
+| `exists(idOrItem)`                   | `boolean`        | Check item existence                          |
+| `findById(id)`                       | `T \| undefined` | Find by id property                           |
+| `findBy(property, value)`            | `T \| undefined` | Find by any property                          |
+| `findAllBy(property, value)`         | `T[]`            | Find all matching                             |
+| `findIndexBy(property, value)`       | `number`         | Find first index (-1 if not found)            |
+| `findAllIndexesBy(property, value)`  | `number[]`       | Find all matching indexes                     |
+| `search(query, strategy?, options?)` | `T[]`            | Full-text search (requires searchable config) |
 
 ### Tag Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `configureTag(tagName, config?, publish?)` | `boolean` | Configure tag cardinality |
-| `applyTag(item, tagName, publish?)` | `boolean` | Tag item by reference |
-| `applyTagByIndex(index, tagName, publish?)` | `boolean` | Tag item by index |
-| `applyTagByIndexes(indexes, tagName, publish?)` | `boolean` | Tag multiple items |
-| `removeTag(item, tagName, publish?)` | `boolean` | Remove tag by reference |
-| `removeTagByIndex(index, tagName, publish?)` | `boolean` | Remove tag by index |
-| `removeTagByIndexes(indexes, tagName, publish?)` | `boolean` | Remove tag from multiple |
-| `hasTag(item, tagName)` | `boolean` | Check if item has tag |
-| `hasTagByIndex(index, tagName)` | `boolean` | Check by index |
-| `getByTag(tagName)` | `T[]` | Get all items with tag |
-| `getIndexesByTag(tagName)` | `number[]` | Get indexes with tag |
-| `toggleTag(item, tagName, publish?)` | `boolean` | Toggle tag (true=applied, false=removed) |
-| `toggleTagByIndex(index, tagName, publish?)` | `boolean \| undefined` | Toggle by index |
-| `deleteTag(tagName, publish?)` | `boolean` | Remove tag completely |
+| Method                                           | Returns                | Description                              |
+| ------------------------------------------------ | ---------------------- | ---------------------------------------- |
+| `configureTag(tagName, config?, publish?)`       | `boolean`              | Configure tag cardinality                |
+| `applyTag(item, tagName, publish?)`              | `boolean`              | Tag item by reference                    |
+| `applyTagByIndex(index, tagName, publish?)`      | `boolean`              | Tag item by index                        |
+| `applyTagByIndexes(indexes, tagName, publish?)`  | `boolean`              | Tag multiple items                       |
+| `removeTag(item, tagName, publish?)`             | `boolean`              | Remove tag by reference                  |
+| `removeTagByIndex(index, tagName, publish?)`     | `boolean`              | Remove tag by index                      |
+| `removeTagByIndexes(indexes, tagName, publish?)` | `boolean`              | Remove tag from multiple                 |
+| `hasTag(item, tagName)`                          | `boolean`              | Check if item has tag                    |
+| `hasTagByIndex(index, tagName)`                  | `boolean`              | Check by index                           |
+| `getByTag(tagName)`                              | `T[]`                  | Get all items with tag                   |
+| `getIndexesByTag(tagName)`                       | `number[]`             | Get indexes with tag                     |
+| `toggleTag(item, tagName, publish?)`             | `boolean`              | Toggle tag (true=applied, false=removed) |
+| `toggleTagByIndex(index, tagName, publish?)`     | `boolean \| undefined` | Toggle by index                          |
+| `deleteTag(tagName, publish?)`                   | `boolean`              | Remove tag completely                    |
 
 ### Serialization Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `toJSON()` | `ItemCollectionDump<T>` | Export as object |
-| `dump()` | `string` | Export as JSON string |
-| `restore(dump)` | `boolean` | Import from string/object |
+| Method          | Returns                 | Description               |
+| --------------- | ----------------------- | ------------------------- |
+| `toJSON()`      | `ItemCollectionDump<T>` | Export as object          |
+| `dump()`        | `string`                | Export as JSON string     |
+| `restore(dump)` | `boolean`               | Import from string/object |
 
 ### Static Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
+| Method                             | Returns             | Description             |
+| ---------------------------------- | ------------------- | ----------------------- |
 | `ItemCollection.fromJSON<T>(json)` | `ItemCollection<T>` | Create from JSON string |
 
 ### Reactivity
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `subscribe(cb)` | `() => void` | Subscribe to changes (immediate initial call) |
+| Method          | Returns      | Description                                                    |
+| --------------- | ------------ | -------------------------------------------------------------- |
+| `subscribe(cb)` | `() => void` | Subscribe to changes (immediate initial call)                  |
+| `batch(fn)`     | `void`       | Coalesce multiple mutations into a single publish notification |
 
 Callback receives:
+
 ```ts
 {
   items: T[];
@@ -159,17 +164,17 @@ Callback receives:
 
 ## Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `cardinality` | `number` | `Infinity` | Maximum items allowed |
-| `unique` | `boolean` | `true` | Prevent duplicates by id |
-| `idPropName` | `string` | `"id"` | Property used as unique identifier |
-| `allowNextPrevCycle` | `boolean` | `false` | Wrap navigation at ends |
-| `allowUnconfiguredTags` | `boolean` | `true` | Allow ad-hoc tags |
-| `tags` | `Record<string, {cardinality}>` | `{}` | Pre-configured tags |
-| `sortFn` | `(a, b) => number` | `undefined` | Auto-sort on add |
-| `normalizeFn` | `(item) => T` | string-to-object | Transform before add |
-| `searchable` | `{getContent: (item) => string}` | `undefined` | Enable full-text search (constructor only) |
+| Option                  | Type                             | Default          | Description                                |
+| ----------------------- | -------------------------------- | ---------------- | ------------------------------------------ |
+| `cardinality`           | `number`                         | `Infinity`       | Maximum items allowed                      |
+| `unique`                | `boolean`                        | `true`           | Prevent duplicates by id                   |
+| `idPropName`            | `string`                         | `"id"`           | Property used as unique identifier         |
+| `allowNextPrevCycle`    | `boolean`                        | `false`          | Wrap navigation at ends                    |
+| `allowUnconfiguredTags` | `boolean`                        | `true`           | Allow ad-hoc tags                          |
+| `tags`                  | `Record<string, {cardinality}>`  | `{}`             | Pre-configured tags                        |
+| `sortFn`                | `(a, b) => number`               | `undefined`      | Auto-sort on add                           |
+| `normalizeFn`           | `(item) => T`                    | string-to-object | Transform before add                       |
+| `searchable`            | `{getContent: (item) => string}` | `undefined`      | Enable full-text search (constructor only) |
 
 ## Key Behaviors
 
@@ -183,7 +188,9 @@ Callback receives:
 
 - O(1) lookups via automatic property indexing
 - Indexes built on-demand when first queried
-- Rebuilt automatically on add/remove/sort
+- Rebuilt automatically on add/remove/sort/move/patch — all tracked properties, not only
+  the id property (since 1.4)
+- `findAllIndexesBy()` returns a defensive copy of the internal index entry
 
 ### Tag System
 
@@ -207,9 +214,33 @@ Callback receives:
 
 ### Serialization
 
-- `dump()`/`restore()` preserves: items, activeIndex, cardinality, unique, idPropName, tags, tagConfigs
-- Does NOT preserve: sortFn, normalizeFn, searchable config
+- `dump()`/`restore()` preserves: items, activeIndex, cardinality, unique, idPropName,
+  allowNextPrevCycle, allowUnconfiguredTags, tags, tagConfigs (since 1.4)
+- Does NOT preserve: sortFn, normalizeFn, searchable config (functions are not
+  JSON-serializable)
 - `restore()` on unique collection removes duplicates
+- `restore()` enforces tag cardinality — oversized tag sets in a dump are pruned
+- `restore()` tolerates legacy (pre-1.4) dumps; fields missing from the dump keep the
+  collection's current values instead of being reset to hardcoded defaults
+- `Infinity` cardinalities serialize as `null` (JSON-safe) and restore back to `Infinity`
+- Dump format includes a `version` field since 1.4 (current: `1`)
+
+### Reactivity contract
+
+- `subscribe()` delivers the current snapshot synchronously before returning the
+  unsubscribe function
+- A single mutation publishes exactly once (since 1.4); `toggleTag`, `removeAllBy`,
+  `addMany`, `patchMany` previously published 2–N+1 times
+- `search()` only publishes when `lastQuery` actually changes
+- Use `batch(fn)` to group multiple mutations into a single notification
+
+### Config object
+
+- `get config()` returns a deeply frozen snapshot (since 1.4)
+- Mutating the returned object throws in strict mode
+- Use `configure()` to change configuration
+- Pass `null` to `configure({sortFn: null})` / `configure({normalizeFn: null})` to unset a
+  previously configured function
 
 ## Development Commands
 
@@ -225,8 +256,8 @@ deno task rp           # Release and publish (JSR + npm)
 
 - Framework: Deno test
 - Location: `tests/item-collection.test.ts`
-- Test count: 18 tests
-- Coverage: All public methods and edge cases
+- Test count: 38 tests
+- Coverage: All public methods, edge cases, and regression tests for the 1.4 bug fixes
 
 ## Code Style
 
@@ -248,20 +279,20 @@ deno task rp           # Release and publish (JSR + npm)
 
 ```ts
 const users = new ItemCollection<User>([
-  { id: '1', name: 'Alice' },
-  { id: '2', name: 'Bob' },
+	{ id: "1", name: "Alice" },
+	{ id: "2", name: "Bob" },
 ]);
-users.add({ id: '3', name: 'Charlie' });
+users.add({ id: "3", name: "Charlie" });
 ```
 
 ### Selection Management
 
 ```ts
 const items = new ItemCollection<Product>(products, {
-  tags: { selected: { cardinality: Infinity } }
+	tags: { selected: { cardinality: Infinity } },
 });
-items.toggleTag(product, 'selected');
-const selected = items.getByTag('selected');
+items.toggleTag(product, "selected");
+const selected = items.getByTag("selected");
 ```
 
 ### Single Active (Radio Pattern)
@@ -277,7 +308,7 @@ console.log(tabs.active);
 
 ```ts
 const menu = new ItemCollection<MenuItem>(items, {
-  allowNextPrevCycle: true
+	allowNextPrevCycle: true,
 });
 // Arrow keys: menu.setActiveNext() / menu.setActivePrevious()
 ```
@@ -286,17 +317,17 @@ const menu = new ItemCollection<MenuItem>(items, {
 
 ```ts
 const contacts = new ItemCollection<Contact>([], {
-  searchable: { getContent: (c) => `${c.name} ${c.email}` }
+	searchable: { getContent: (c) => `${c.name} ${c.email}` },
 });
 contacts.addMany(data);
-const results = contacts.search('john', 'prefix');
+const results = contacts.search("john", "prefix");
 ```
 
 ### Persistence
 
 ```ts
-localStorage.setItem('col', collection.dump());
-collection.restore(localStorage.getItem('col'));
+localStorage.setItem("col", collection.dump());
+collection.restore(localStorage.getItem("col"));
 // Or: const restored = ItemCollection.fromJSON<T>(json);
 ```
 
@@ -305,6 +336,6 @@ collection.restore(localStorage.getItem('col'));
 ```ts
 const collection = new ItemCollection<T>(items);
 const unsubscribe = collection.subscribe(({ items, active, size }) => {
-  // Update UI
+	// Update UI
 });
 ```

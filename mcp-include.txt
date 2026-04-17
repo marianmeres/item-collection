@@ -1,1 +1,3 @@
-Generic TypeScript collection manager with active item tracking, ordered navigation, flexible tagging with cardinality limits, O(1) property indexing, optional full-text search, and reactive subscriptions.
+Generic TypeScript collection manager with active item tracking, ordered navigation, 
+flexible tagging with cardinality limits, O(1) property indexing, optional full-text search, 
+and reactive subscriptions.

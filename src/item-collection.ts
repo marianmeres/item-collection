@@ -21,22 +21,34 @@ import { PubSub } from "@marianmeres/pubsub";
 export interface Item extends Record<string, any> {}
 
 /** Supported searchable options */
-export interface ItemCollectionSearchableOptions<T>
-	extends Partial<SearchableOptions> {
+export interface ItemCollectionSearchableOptions<T> extends Partial<SearchableOptions> {
 	// method to extract searchable content from item
 	getContent: (item: T) => string | undefined;
 }
 
-/** Serializable dump output */
+/**
+ * Serializable dump output.
+ *
+ * Note on `Infinity`: `JSON.stringify(Infinity)` emits `null`. The dump always uses
+ * `null` on the wire for `cardinality` or a tag's `cardinality` meaning "unlimited";
+ * `restore()` normalizes `null` back to `Infinity`.
+ */
 export interface ItemCollectionDump<T> {
 	items: T[];
 	activeIndex: number | undefined;
-	cardinality: number;
+	cardinality: number | null;
 	unique: boolean;
 	idPropName: string;
+	allowNextPrevCycle: boolean;
+	allowUnconfiguredTags: boolean;
 	tags: Record<string, number[]>;
-	tagConfigs: Record<string, { cardinality: number }>;
+	tagConfigs: Record<string, { cardinality: number | null }>;
+	/** Dump format version. Omitted means legacy pre-1.4 dumps. */
+	version?: number;
 }
+
+/** Current dump format version. */
+const DUMP_VERSION = 1;
 
 /** Supported factory options */
 export interface ItemCollectionConfig<T> {
@@ -82,6 +94,10 @@ export class ItemCollection<T extends Item> {
 	// { [property]: { [value]: [idx1, idx2] } }
 	#indexesByProperty: Map<string, Map<any, number[]>> = new Map();
 
+	// Set of properties that have been indexed (so we can rebuild all of them on
+	// structural changes, not just the id property).
+	#indexedProperties: Set<string> = new Set();
+
 	// allow only unique items in collection? (uniqueness is determined solely by "id"
 	// property, never by reference)
 	#unique: boolean = true;
@@ -94,13 +110,18 @@ export class ItemCollection<T extends Item> {
 
 	#allowUnconfiguredTags: boolean = true;
 
-	//
-	#sortFn: (a: T, b: T) => number = (_a: T, _b: T) => 0;
+	// Batched publishes: when > 0, #publishCurrent marks pending instead of firing.
+	#batchDepth: number = 0;
+	#batchPending: boolean = false;
 
-	// default opinionated behavior: convert strings to id based objects
+	// undefined means "not configured" (distinct from a no-op comparator). This lets
+	// sort() correctly return false when no sort function is available.
+	#sortFn: ((a: T, b: T) => number) | undefined = undefined;
+
+	// default opinionated behavior: convert strings to id-based objects
 	#normalizeFn: (item: any) => T = (item: any) => {
 		if (typeof item === "string") {
-			item = { [this.#idPropName]: item };
+			return { [this.#idPropName]: item } as unknown as T;
 		}
 		return item;
 	};
@@ -127,7 +148,7 @@ export class ItemCollection<T extends Item> {
 	 */
 	constructor(
 		initial: T[] = [],
-		options: Partial<ItemCollectionConfig<T>> = {}
+		options: Partial<ItemCollectionConfig<T>> = {},
 	) {
 		// searchable is configurable only at the constructor level
 		if (options.searchable) {
@@ -176,18 +197,23 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/**
-	 * Get the current configuration options
+	 * Get the current configuration options as a frozen snapshot.
+	 * Mutating the returned object has no effect on the collection state.
 	 * @returns The collection configuration object
 	 */
 	get config(): ExposedConfig {
-		return {
+		const tags: Record<string, { cardinality: number }> = {};
+		for (const [name, cfg] of this.#tagConfigs.entries()) {
+			tags[name] = Object.freeze({ cardinality: cfg.cardinality });
+		}
+		return Object.freeze({
 			cardinality: this.#cardinality,
-			tags: Object.fromEntries(this.#tagConfigs.entries()),
+			tags: Object.freeze(tags),
 			allowNextPrevCycle: this.#allowNextPrevCycle,
 			allowUnconfiguredTags: this.#allowUnconfiguredTags,
 			unique: this.#unique,
 			idPropName: this.#idPropName,
-		};
+		});
 	}
 
 	/**
@@ -223,11 +249,11 @@ export class ItemCollection<T extends Item> {
 	 */
 	configure(
 		options: Partial<ItemCollectionConfig<T>>,
-		publish = true
+		publish = true,
 	): ItemCollection<T> {
 		if (options.searchable) {
 			throw new TypeError(
-				"Searchable options can only be specified at the constructor level."
+				"Searchable options can only be specified at the constructor level.",
 			);
 		}
 
@@ -257,17 +283,33 @@ export class ItemCollection<T extends Item> {
 			});
 		}
 
-		if (typeof options.sortFn === "function") {
-			this.#sortFn = options.sortFn;
+		// sortFn/normalizeFn: function assigns, null unsets, undefined is ignored.
+		// Passing `null` restores the default behavior (no-op sort / pass-through
+		// normalize).
+		if (options.sortFn !== undefined) {
+			this.#sortFn = typeof options.sortFn === "function"
+				? options.sortFn
+				: undefined;
 		}
-
-		if (typeof options.normalizeFn === "function") {
-			this.#normalizeFn = options.normalizeFn;
+		if (options.normalizeFn !== undefined) {
+			this.#normalizeFn = typeof options.normalizeFn === "function"
+				? options.normalizeFn
+				: this.#getDefaultNormalizeFn();
 		}
 
 		if (publish) this.#publishCurrent();
 
 		return this;
+	}
+
+	// Returns a fresh default normalizer closed over the current idPropName.
+	#getDefaultNormalizeFn(): (item: any) => T {
+		return (item: any): T => {
+			if (typeof item === "string") {
+				return { [this.#idPropName]: item } as unknown as T;
+			}
+			return item;
+		};
 	}
 
 	/**
@@ -292,14 +334,27 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/**
-	 * Set the active item by index number
-	 * @param index - The index of the item to set as active (uses modulo for wrapping)
+	 * Set the active item by index number.
+	 *
+	 * Positive indexes use modulo wrapping (e.g. on size 3: 5 → 2).
+	 * Negative indexes count from the end (e.g. on size 3: -1 → 2).
+	 * If the collection is empty, activeIndex is set to undefined.
+	 *
+	 * @param index - The index of the item to set as active
 	 * @param publish - Whether to notify subscribers (default: true)
 	 * @returns The newly active item, or undefined if collection is empty
 	 */
 	setActiveIndex(index: number, publish = true): T | undefined {
 		const prev = this.#activeIndex;
-		this.#activeIndex = this.size > 0 ? index % this.size : undefined;
+		if (this.size === 0) {
+			this.#activeIndex = undefined;
+		} else {
+			// Normalize negatives from the tail, positives by modulo wrap.
+			const n = this.size;
+			let i = Number.isFinite(index) ? Math.trunc(index) % n : 0;
+			if (i < 0) i += n;
+			this.#activeIndex = i;
+		}
 		if (prev !== this.#activeIndex && publish) this.#publishCurrent();
 		return this.active;
 	}
@@ -360,12 +415,15 @@ export class ItemCollection<T extends Item> {
 
 		this.#items.push(item);
 
-		if (autoSort) {
+		// Always incrementally update tracked-property indexes for the appended
+		// item. If a sort function is configured and autoSort is true, sort() will
+		// subsequently rebuild all tracked indexes from scratch. This guarantees
+		// correctness whether or not a sortFn is present.
+		this.#updateItemIndexes(item, this.#items.length - 1);
+
+		if (autoSort && this.#sortFn) {
 			// resort & rebuild indexes
 			this.sort(undefined, false);
-		} else {
-			// Update indexes for all properties
-			this.#updateItemIndexes(item, this.#items.length - 1);
 		}
 
 		this.#recreateSearchableFor(item);
@@ -394,7 +452,7 @@ export class ItemCollection<T extends Item> {
 
 		// sort just once
 		if (added) {
-			this.sort();
+			this.sort(undefined, false);
 			if (publish) this.#publishCurrent();
 		}
 
@@ -419,8 +477,14 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/**
-	 * Update an existing item in place (matched by id)
-	 * Useful for optimistic UI strategies where you want to update without removing/re-adding
+	 * Update an existing item in place (matched by id).
+	 *
+	 * Useful for optimistic UI strategies where you want to update without
+	 * removing/re-adding. Rebuilds any indexes affected by the patched item's
+	 * property values. The id property itself MUST match an existing item and
+	 * must not change — patches that would mutate the id are rejected (use
+	 * `remove` + `add` instead).
+	 *
 	 * @param item - The item to patch (must have matching id in collection)
 	 * @param publish - Whether to notify subscribers (default: true)
 	 * @returns true if item was patched, false if item not found
@@ -428,22 +492,28 @@ export class ItemCollection<T extends Item> {
 	patch(item: T | undefined, publish = true): boolean {
 		if (!item) return false;
 
-		let patched = 0;
+		const id = item[this.#idPropName];
+		const indexes = this.findAllIndexesBy(this.#idPropName, id);
+		if (!indexes.length) return false;
 
-		const indexes = this.findAllIndexesBy(
-			this.#idPropName,
-			item[this.#idPropName]
-		);
+		// Guard against id change: the normalized item's id must be identical to
+		// the lookup id. This catches accidental id mutation that would silently
+		// corrupt indexes.
+		if (item[this.#idPropName] !== id) return false;
+
 		for (const index of indexes) {
 			this.#items[index] = item;
-			patched++;
 		}
+
+		// Indexes for any property that was previously accessed may now be stale
+		// (the patched item could have different property values). Rebuild them.
+		this.#rebuildAllIndexes();
 
 		this.#recreateSearchableFor(item);
 
-		if (patched && publish) this.#publishCurrent();
+		if (publish) this.#publishCurrent();
 
-		return !!patched;
+		return true;
 	}
 
 	/**
@@ -455,7 +525,7 @@ export class ItemCollection<T extends Item> {
 	patchMany(items: (T | undefined)[], publish = true): number {
 		let patched = 0;
 		for (const item of items) {
-			patched += Number(this.patch(item));
+			if (this.patch(item, false)) patched++;
 		}
 		if (patched && publish) this.#publishCurrent();
 		return patched;
@@ -491,14 +561,25 @@ export class ItemCollection<T extends Item> {
 		// Remove from items array
 		this.#items.splice(index, 1);
 
-		// Update indexes
-		this.#removeItemFromIndexes(removedItem, index);
+		// Update indexes (wholesale rebuild of tracked properties is correct and
+		// simple; a surgical update per property is possible but not worth the
+		// code complexity until profiling demands it).
+		this.#rebuildAllIndexes();
 
 		// Adjust active index if needed
 		if (this.#activeIndex !== undefined) {
 			if (index === this.#activeIndex) {
-				// The active item was removed, adjust to next item or undefined if empty
-				this.#activeIndex = this.size > 0 ? index % this.size : undefined;
+				// The active item was removed. Prefer the item now at that index
+				// (i.e. the one that was right after). If we removed the tail, fall
+				// back to the new tail; empty collection → undefined. This avoids
+				// the surprising "tail wraps to head" behavior of a plain modulo.
+				if (this.size === 0) {
+					this.#activeIndex = undefined;
+				} else if (index >= this.size) {
+					this.#activeIndex = this.size - 1;
+				} else {
+					this.#activeIndex = index;
+				}
 			} else if (index < this.#activeIndex) {
 				// The removed item was before the active item, decrement active index
 				this.#activeIndex--;
@@ -528,7 +609,7 @@ export class ItemCollection<T extends Item> {
 
 		let index = this.findIndexBy(property, value);
 		while (index >= 0) {
-			this.removeAt(index);
+			this.removeAt(index, false);
 			removed++;
 			index = this.findIndexBy(property, value);
 		}
@@ -616,8 +697,7 @@ export class ItemCollection<T extends Item> {
 	 * @returns true if exists, false otherwise
 	 */
 	exists(idOrItem: string | T): boolean {
-		const id =
-			typeof idOrItem === "string" ? idOrItem : idOrItem[this.#idPropName];
+		const id = typeof idOrItem === "string" ? idOrItem : idOrItem[this.#idPropName];
 		return this.findBy(this.#idPropName, id) !== undefined;
 	}
 
@@ -675,7 +755,10 @@ export class ItemCollection<T extends Item> {
 		}
 
 		const propIndex = this.#indexesByProperty.get(property)!;
-		return propIndex.get(value) ?? [];
+		const found = propIndex.get(value);
+		// Return a shallow copy: the index is an internal structure; callers must
+		// not be able to mutate it via the returned reference.
+		return found ? found.slice() : [];
 	}
 
 	/**
@@ -690,21 +773,37 @@ export class ItemCollection<T extends Item> {
 	search(
 		query: string,
 		strategy: "exact" | "prefix" | "fuzzy" = "prefix",
-		options: Partial<{ maxDistance: number }> = {}
+		options: Partial<{ maxDistance: number }> = {},
 	): T[] {
 		if (!this.#searchable) {
 			throw new TypeError("This collection is not configured as searchable");
 		}
-		const ids = this.#searchable?.search(query, strategy, options);
+		// Snapshot the query state; Searchable returns a live reference.
+		const prevQuery: LastQuery | undefined = this.#searchable.lastQuery
+			? { ...this.#searchable.lastQuery }
+			: undefined;
+		const ids = this.#searchable.search(query, strategy, options);
 		const out = [];
 		for (const id of ids) {
 			out.push(this.findBy(this.#idPropName, id)!);
 		}
 
-		// make "lastQuery" reactive
-		this.#publishCurrent();
+		// make "lastQuery" reactive, but only when it actually changed — avoids
+		// notifying subscribers about a read-only no-op query.
+		if (!this.#lastQueryEquals(prevQuery, this.#searchable.lastQuery)) {
+			this.#publishCurrent();
+		}
 
 		return out;
+	}
+
+	#lastQueryEquals(
+		a: LastQuery | undefined,
+		b: LastQuery | undefined,
+	): boolean {
+		if (a === b) return true;
+		if (!a || !b) return false;
+		return a.raw === b.raw && a.used === b.used;
 	}
 
 	/**
@@ -833,17 +932,31 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/**
-	 * Clear all items from the collection
-	 * Also clears active index and resets all tag associations
+	 * Clear all items from the collection.
+	 *
+	 * Also clears the active index, all tag associations (tag → indexes) and the
+	 * searchable index (if configured). Tag *configurations* (cardinality) are
+	 * preserved so a collection continues to behave consistently with its
+	 * construction options.
+	 *
 	 * @param publish - Whether to notify subscribers (default: true)
 	 * @returns This collection instance for chaining
 	 */
 	clear(publish = true): ItemCollection<T> {
+		// Capture ids first so we can purge the searchable index (no bulk reset).
+		if (this.#searchable) {
+			for (const item of this.#items) {
+				this.#searchable.__index.removeDocId(item[this.#idPropName]);
+			}
+		}
+
 		this.#items = [];
 		this.#activeIndex = undefined;
 		this.#indexesByProperty = new Map();
+		// Keep #indexedProperties so the first post-clear lookup is still O(1).
 
-		// Clear all tags
+		// Clear all tag associations (keep configs so the collection behaves
+		// consistently with its construction options).
 		for (const tagSet of this.#tags.values()) {
 			tagSet.clear();
 		}
@@ -861,7 +974,7 @@ export class ItemCollection<T extends Item> {
 		return [...this.#items];
 	}
 
-	/** Build an index for a specific property */
+	/** Build an index for a specific property. Tracks the property as indexed. */
 	#buildIndexForProperty(property: string): void {
 		const index = new Map();
 
@@ -876,41 +989,45 @@ export class ItemCollection<T extends Item> {
 		});
 
 		this.#indexesByProperty.set(property, index);
+		this.#indexedProperties.add(property);
 	}
 
-	/** Update indexes when adding a new item */
+	/** Update indexes for the currently-tracked properties when adding a new item. */
 	#updateItemIndexes(item: T, index: number) {
-		for (const prop in item) {
-			if (Object.prototype.hasOwnProperty.call(item, prop)) {
-				if (!this.#indexesByProperty.has(prop)) {
-					this.#indexesByProperty.set(prop, new Map<any, number[]>());
-				}
-
-				const propIndex = this.#indexesByProperty.get(prop)!;
-				const value = item[prop];
-
-				if (!propIndex.has(value)) {
-					propIndex.set(value, []);
-				}
-
-				propIndex.get(value)!.push(index);
+		// Only track properties the caller has already shown interest in — building
+		// every property index for every added item would be O(items × props).
+		for (const prop of this.#indexedProperties) {
+			if (!this.#indexesByProperty.has(prop)) {
+				this.#indexesByProperty.set(prop, new Map<any, number[]>());
 			}
+			const propIndex = this.#indexesByProperty.get(prop)!;
+			const value = item[prop];
+			if (typeof value === "undefined") continue;
+			if (!propIndex.has(value)) {
+				propIndex.set(value, []);
+			}
+			propIndex.get(value)!.push(index);
+		}
+		// Always make sure the id property is indexed — core lookups depend on it.
+		if (!this.#indexedProperties.has(this.#idPropName)) {
+			this.#buildIndexForProperty(this.#idPropName);
 		}
 	}
 
-	/** Remove an item from indexes when removing from collection */
-	#removeItemFromIndexes(_item: T, _removedIndex: number) {
-		// For simplicity, rebuild all indexes
-		// This is more reliable than trying to update just the affected entries
-		this.#rebuildAllIndexes();
-	}
-
-	/** Rebuild all property indexes */
+	/**
+	 * Rebuild all property indexes that were previously accessed.
+	 *
+	 * Previously this only rebuilt the id index "for simplicity", which silently
+	 * dropped every custom-property index on remove/sort/move/patch. Subsequent
+	 * lookups would then scan the entire collection instead of hitting O(1).
+	 */
 	#rebuildAllIndexes() {
 		this.#indexesByProperty = new Map();
-
-		// Rebuild common indexes
-		this.#buildIndexForProperty(this.#idPropName);
+		// Always include the id property.
+		this.#indexedProperties.add(this.#idPropName);
+		for (const prop of this.#indexedProperties) {
+			this.#buildIndexForProperty(prop);
+		}
 	}
 
 	/** Will create new implicit tag config (if allowed) */
@@ -982,18 +1099,20 @@ export class ItemCollection<T extends Item> {
 	applyTagByIndexes(
 		indexes: number[],
 		tagName: string,
-		publish = true
+		publish = true,
 	): boolean {
-		let res = false;
-
+		// Historical semantics: returns true only if ALL applications succeeded.
+		// Fixed in 1.4: we now iterate the full list (previously short-circuited
+		// on first failure, leaving partial state without reporting it). Only a
+		// single publish notification is emitted at the end.
+		let allOk = indexes.length > 0;
 		for (const index of indexes) {
-			res = this.applyTagByIndex(index, tagName, false);
-			if (!res) break;
+			if (!this.applyTagByIndex(index, tagName, false)) allOk = false;
 		}
 
 		if (publish) this.#publishCurrent();
 
-		return res;
+		return allOk;
 	}
 
 	/**
@@ -1044,7 +1163,7 @@ export class ItemCollection<T extends Item> {
 	removeTagByIndexes(
 		indexes: number[],
 		tagName: string,
-		publish = true
+		publish = true,
 	): boolean {
 		let successCounter = 0;
 		for (const index of indexes) {
@@ -1120,9 +1239,9 @@ export class ItemCollection<T extends Item> {
 
 		const hasTag = this.hasTag(item, tagName);
 		if (hasTag) {
-			this.removeTag(item, tagName);
+			this.removeTag(item, tagName, false);
 		} else {
-			this.applyTag(item, tagName);
+			this.applyTag(item, tagName, false);
 		}
 
 		if (publish) this.#publishCurrent();
@@ -1141,7 +1260,7 @@ export class ItemCollection<T extends Item> {
 	toggleTagByIndex(
 		index: number,
 		tagName: string,
-		publish = true
+		publish = true,
 	): boolean | undefined {
 		if (!this.at(index)) return undefined;
 
@@ -1183,24 +1302,32 @@ export class ItemCollection<T extends Item> {
 	configureTag(
 		tagName: string,
 		config: { cardinality: number } = { cardinality: Infinity },
-		publish = true
+		publish = true,
 	): boolean {
-		if (!this.#tagConfigs.has(tagName)) {
+		const preexisting = this.#tagConfigs.has(tagName);
+		if (!preexisting) {
 			this.#tagConfigs.set(tagName, { cardinality: Infinity });
 			this.#tags.set(tagName, new Set());
 		}
 
 		const currentConfig = this.#tagConfigs.get(tagName)!;
+		const prevCardinality = currentConfig.cardinality;
 		Object.assign(currentConfig, config);
 
-		// If cardinality is reduced, we may need to remove tags
+		// If cardinality is reduced, we may need to prune currently-tagged items
+		// to respect the new limit.
 		if (
 			config.cardinality !== undefined &&
 			config.cardinality < this.#tags.get(tagName)!.size
 		) {
 			this.#enforceTagCardinality(tagName);
-			if (publish) this.#publishCurrent();
 		}
+
+		// Publish on any actual change (new config or cardinality changed) so
+		// subscribers observing `config` see a consistent, non-surprising update
+		// contract aligned with the rest of the API.
+		const changed = !preexisting || prevCardinality !== currentConfig.cardinality;
+		if (changed && publish) this.#publishCurrent();
 
 		return true;
 	}
@@ -1227,47 +1354,130 @@ export class ItemCollection<T extends Item> {
 	 * @returns true if sorted, false if no sort function available
 	 */
 	sort(sortFn?: (a: T, b: T) => number, publish = true): boolean {
-		sortFn ??= this.#sortFn;
-		if (sortFn) {
-			this.#items = this.#items.toSorted(sortFn);
-			this.#rebuildAllIndexes();
-			if (publish) this.#publishCurrent();
-			return true;
+		const fn = sortFn ?? this.#sortFn;
+		if (!fn) return false;
+
+		// Capture id@index BEFORE sorting so tag sets (which are index-based) can
+		// be remapped after the reorder. Without this, sorting silently detaches
+		// tags from their items.
+		const idAtOldIndex: any[] = this.#items.map(
+			(it) => it[this.#idPropName],
+		);
+		// Also capture the id of the currently active item (if any) so we can
+		// track it across the reorder.
+		const activeId = this.#activeIndex !== undefined
+			? this.#items[this.#activeIndex][this.#idPropName]
+			: undefined;
+
+		this.#items = this.#items.toSorted(fn);
+		this.#rebuildAllIndexes();
+
+		// Build new id → new index (first occurrence). With unique=true this is
+		// sufficient; with unique=false, remap uses the sequence of occurrences.
+		const remap = this.#buildSortRemap(idAtOldIndex);
+
+		// Remap tag indexes.
+		if (this.#tags.size > 0) {
+			for (const [tagName, tagSet] of this.#tags.entries()) {
+				const next = new Set<number>();
+				for (const oldIdx of tagSet) {
+					const newIdx = remap.next(oldIdx);
+					if (newIdx !== undefined) next.add(newIdx);
+				}
+				this.#tags.set(tagName, next);
+			}
 		}
-		return false;
+
+		// Remap activeIndex by id to preserve "the same active item" across sort.
+		if (activeId !== undefined) {
+			const newIdx = this.findIndexBy(this.#idPropName, activeId);
+			this.#activeIndex = newIdx === -1 ? undefined : newIdx;
+		}
+
+		if (publish) this.#publishCurrent();
+		return true;
 	}
 
 	/**
-	 * Export collection state to a JSON-serializable object
+	 * Given an array mapping old-index → id, and the current (post-sort) #items,
+	 * return a function `next(oldIdx) -> newIdx | undefined` that translates
+	 * positions across the sort. Supports non-unique collections by consuming
+	 * new-index occurrences in iteration order.
+	 */
+	#buildSortRemap(idAtOldIndex: any[]): { next(oldIdx: number): number | undefined } {
+		// For each id, a queue of new indexes (insertion-order) that haven't yet
+		// been handed out. This keeps the remap stable for non-unique collections.
+		const queues = new Map<any, number[]>();
+		this.#items.forEach((it, idx) => {
+			const id = it[this.#idPropName];
+			const q = queues.get(id);
+			if (q) q.push(idx);
+			else queues.set(id, [idx]);
+		});
+		// Translate old-index positions in order, so duplicate ids map stably:
+		// the k-th old occurrence of id X lands on the k-th new occurrence of id X.
+		// We do this by walking idAtOldIndex in order and consuming the queue.
+		const memo = new Map<number, number | undefined>();
+		idAtOldIndex.forEach((id, oldIdx) => {
+			const q = queues.get(id);
+			const newIdx = q && q.length ? q.shift() : undefined;
+			memo.set(oldIdx, newIdx);
+		});
+		return {
+			next: (oldIdx: number) => memo.get(oldIdx),
+		};
+	}
+
+	/**
+	 * Export collection state to a JSON-serializable object.
+	 *
+	 * `Infinity` values (collection `cardinality` and any tag's `cardinality`)
+	 * are serialized as `null` so they round-trip cleanly through `JSON.stringify`
+	 * — `restore()` normalizes `null` back to `Infinity`.
+	 *
 	 * @returns A dump object containing all collection state
 	 */
 	toJSON(): ItemCollectionDump<T> {
-		// Create a serializable tags object
 		const serializedTags: Record<string, number[]> = {};
 		for (const [tagName, tagSet] of this.#tags.entries()) {
 			serializedTags[tagName] = Array.from(tagSet);
 		}
 
-		// Create a serializable tag configs object
-		const serializedTagConfigs: Record<string, { cardinality: number }> = {};
+		const serializedTagConfigs: Record<
+			string,
+			{ cardinality: number | null }
+		> = {};
 		for (const [tagName, config] of this.#tagConfigs.entries()) {
-			serializedTagConfigs[tagName] = { ...config };
+			serializedTagConfigs[tagName] = {
+				cardinality: this.#serializeCardinality(config.cardinality),
+			};
 		}
 
 		return {
-			// Collection items
+			version: DUMP_VERSION,
 			items: this.#items,
-
-			// Collection state
 			activeIndex: this.#activeIndex,
-			cardinality: this.#cardinality,
+			cardinality: this.#serializeCardinality(this.#cardinality),
 			unique: this.#unique,
 			idPropName: this.#idPropName,
-
-			// Tag information
+			allowNextPrevCycle: this.#allowNextPrevCycle,
+			allowUnconfiguredTags: this.#allowUnconfiguredTags,
 			tags: serializedTags,
 			tagConfigs: serializedTagConfigs,
 		};
+	}
+
+	#serializeCardinality(n: number): number | null {
+		return Number.isFinite(n) ? n : null;
+	}
+
+	#deserializeCardinality(v: unknown): number {
+		// `null` and missing → Infinity (unlimited). Any finite number passes
+		// through. Other values (undefined, strings, etc.) fall back to Infinity
+		// rather than NaN to avoid producing comparisons that silently fail.
+		if (v === null || v === undefined) return Infinity;
+		if (typeof v === "number" && Number.isFinite(v)) return v;
+		return Infinity;
 	}
 
 	/**
@@ -1279,75 +1489,106 @@ export class ItemCollection<T extends Item> {
 	}
 
 	/**
-	 * Restore collection state from a serialized dump
+	 * Restore collection state from a serialized dump.
+	 *
+	 * Accepts both the current dump format (with `version`, `allowNextPrevCycle`,
+	 * `allowUnconfiguredTags`) and legacy dumps that predate those fields —
+	 * missing fields keep their current values rather than being reset to
+	 * hardcoded defaults, so a collection configured at construction time is
+	 * not silently "downgraded" by restoring an older dump.
+	 *
+	 * `null` cardinalities (produced by serializing `Infinity`) are restored
+	 * back to `Infinity`. Tag sets that exceed their configured cardinality
+	 * are pruned to respect the limit.
+	 *
 	 * @param dump - JSON string or dump object to restore from
-	 * @returns true if successful, false if failed
+	 * @returns true if successful, false if the input is missing/invalid
 	 */
 	restore(dump: string | ItemCollectionDump<T>): boolean {
 		if (!dump) return false;
 
+		let parsed: any = dump;
 		if (typeof dump === "string") {
-			dump = JSON.parse(dump);
+			try {
+				parsed = JSON.parse(dump);
+			} catch {
+				return false;
+			}
 		}
 
-		if (typeof dump !== "object") return false;
+		if (!parsed || typeof parsed !== "object") return false;
 
 		try {
-			// Clear current state
+			// Clear current state (silent — we'll publish once at the end).
 			this.clear(false);
 
-			// Restore configuration
-			this.#cardinality = dump.cardinality ?? Infinity;
-			this.#unique = !!dump.unique;
-			this.#idPropName = dump.idPropName;
-
-			//
-			if (Array.isArray(dump.items)) {
-				this.addMany(dump.items, false);
-				this.#rebuildAllIndexes();
+			// Core config — only overwrite when the dump actually has the field,
+			// so legacy dumps don't erase current configuration.
+			if ("cardinality" in parsed) {
+				this.#cardinality = this.#deserializeCardinality(parsed.cardinality);
+			}
+			if ("unique" in parsed) this.#unique = !!parsed.unique;
+			if (typeof parsed.idPropName === "string") {
+				this.#idPropName = parsed.idPropName;
+			}
+			if ("allowNextPrevCycle" in parsed) {
+				this.#allowNextPrevCycle = !!parsed.allowNextPrevCycle;
+			}
+			if ("allowUnconfiguredTags" in parsed) {
+				this.#allowUnconfiguredTags = !!parsed.allowUnconfiguredTags;
 			}
 
-			// Restore active index
+			// Items
+			if (Array.isArray(parsed.items)) {
+				this.addMany(parsed.items, false);
+			}
+
+			// Active index (validate against the restored collection size).
 			if (
-				typeof dump.activeIndex === "number" &&
-				dump.activeIndex >= 0 &&
-				dump.activeIndex < this.size
+				typeof parsed.activeIndex === "number" &&
+				parsed.activeIndex >= 0 &&
+				parsed.activeIndex < this.size
 			) {
-				this.#activeIndex = dump.activeIndex;
+				this.#activeIndex = parsed.activeIndex;
 			}
 
-			// Restore tag configurations
-			if (dump.tagConfigs && typeof dump.tagConfigs === "object") {
-				for (const [tagName, config] of Object.entries(dump.tagConfigs)) {
-					this.#tagConfigs.set(tagName, { ...config });
-
-					// Initialize tag sets that might not have entries
+			// Tag configurations — normalize Infinity and pre-create empty tag
+			// sets so configured tags remain visible even without any members.
+			if (parsed.tagConfigs && typeof parsed.tagConfigs === "object") {
+				for (const [tagName, cfg] of Object.entries(parsed.tagConfigs)) {
+					const cardinality = this.#deserializeCardinality(
+						(cfg as any)?.cardinality,
+					);
+					this.#tagConfigs.set(tagName, { cardinality });
 					if (!this.#tags.has(tagName)) {
 						this.#tags.set(tagName, new Set());
 					}
 				}
 			}
 
-			// Restore tag sets
-			if (dump.tags && typeof dump.tags === "object") {
-				for (const [tagName, indexes] of Object.entries(dump.tags)) {
-					if (Array.isArray(indexes)) {
-						const tagSet = new Set<number>();
-
-						// Only add valid indexes
-						for (const index of indexes) {
-							if (
-								typeof index === "number" &&
-								index >= 0 &&
-								index < this.size
-							) {
-								tagSet.add(index);
-							}
+			// Tag sets — filter to valid indexes only.
+			if (parsed.tags && typeof parsed.tags === "object") {
+				for (const [tagName, indexes] of Object.entries(parsed.tags)) {
+					if (!Array.isArray(indexes)) continue;
+					const tagSet = new Set<number>();
+					for (const index of indexes) {
+						if (
+							typeof index === "number" &&
+							index >= 0 &&
+							index < this.size
+						) {
+							tagSet.add(index);
 						}
-
-						this.#tags.set(tagName, tagSet);
 					}
+					this.#tags.set(tagName, tagSet);
 				}
+			}
+
+			// Enforce cardinality on restored tags. Configurations loaded from
+			// disk may exceed the limit (e.g. if someone edited the dump, or if
+			// a later cardinality change was applied to a separately-held dump).
+			for (const tagName of this.#tagConfigs.keys()) {
+				this.#enforceTagCardinality(tagName);
 			}
 
 			this.#publishCurrent();
@@ -1355,7 +1596,8 @@ export class ItemCollection<T extends Item> {
 			return true;
 		} catch (error) {
 			console.error("Unable to restore", error);
-			// If any error occurs during restoration, ensure the collection is in a clean state
+			// If any error occurs during restoration, ensure the collection is
+			// in a clean state (but do not publish twice — clear publishes).
 			this.clear();
 			return false;
 		}
@@ -1386,7 +1628,7 @@ export class ItemCollection<T extends Item> {
 			config: ExposedConfig;
 			timestamp: Date;
 			lastQuery: LastQuery | undefined;
-		}) => void
+		}) => void,
 	): () => void {
 		const unsub = this.#pubsub.subscribe("change", cb);
 		cb(this.#current()); // notify newly subscribed asap
@@ -1394,7 +1636,46 @@ export class ItemCollection<T extends Item> {
 	}
 
 	#publishCurrent() {
+		if (this.#batchDepth > 0) {
+			this.#batchPending = true;
+			return;
+		}
 		this.#pubsub.publish("change", this.#current());
+	}
+
+	/**
+	 * Execute a callback with publish notifications suppressed until the callback
+	 * returns. A single "change" event is emitted at the end if any internal
+	 * operation attempted to publish during the batch.
+	 *
+	 * Useful when composing multiple mutations (add + tag + activate) that
+	 * would otherwise produce several notifications.
+	 *
+	 * Throws propagate through the batch; the buffered publish is still
+	 * flushed so subscribers see the partial state that actually occurred.
+	 *
+	 * Nested calls are supported; only the outermost batch flushes.
+	 *
+	 * @example
+	 * ```ts
+	 * collection.batch(() => {
+	 *   collection.add(newItem);
+	 *   collection.applyTag(newItem, 'featured');
+	 *   collection.setActive(newItem);
+	 * }); // subscribers notified exactly once
+	 * ```
+	 */
+	batch(fn: () => void): void {
+		this.#batchDepth++;
+		try {
+			fn();
+		} finally {
+			this.#batchDepth--;
+			if (this.#batchDepth === 0 && this.#batchPending) {
+				this.#batchPending = false;
+				this.#pubsub.publish("change", this.#current());
+			}
+		}
 	}
 
 	/** Collect current state for publishing. */
