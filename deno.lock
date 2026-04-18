@@ -3,7 +3,7 @@
   "specifiers": {
     "jsr:@marianmeres/npmbuild@^1.12.0": "1.12.0",
     "jsr:@marianmeres/pubsub@3": "3.0.0",
-    "jsr:@marianmeres/searchable@^2.6.0": "2.6.0",
+    "jsr:@marianmeres/searchable@^2.6.3": "2.6.3",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/collections@^1.1.6": "1.1.6",
     "jsr:@std/fs@^1.0.23": "1.0.23",
@@ -22,8 +22,8 @@
     "@marianmeres/pubsub@3.0.0": {
       "integrity": "9bc40e60362801663fb23e0c00a353abec7684840b6bea410facba09c083677b"
     },
-    "@marianmeres/searchable@2.6.0": {
-      "integrity": "92977d13817337bd54371067da6afedc70064e2a1dcea79c108c233f4f0d7a0c"
+    "@marianmeres/searchable@2.6.3": {
+      "integrity": "cddbe8f664268c03944b50b8dcea3367544fc246e117b8e01a1bb7239484dab4"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -55,7 +55,7 @@
     "dependencies": [
       "jsr:@marianmeres/npmbuild@^1.12.0",
       "jsr:@marianmeres/pubsub@3",
-      "jsr:@marianmeres/searchable@^2.6.0",
+      "jsr:@marianmeres/searchable@^2.6.3",
       "jsr:@std/assert@^1.0.19",
       "jsr:@std/fs@^1.0.23",
       "jsr:@std/path@^1.1.4"
